@@ -122,7 +122,7 @@ criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 # Read ###
-training_list = ws.read_set_file('training')
+training_list = ws.read_set_file('../Data/train','training')
 
 # Parameters ###
 labels = ['yes','no','up','down','left','right','on','off','stop','go','unknown','silence']

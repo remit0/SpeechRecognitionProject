@@ -57,18 +57,18 @@ def which_set(filename, validation_percentage, testing_percentage):
     result = 'training'
   return result
 
-def make_set_files():
+def make_set_files(filepath, targetpath):
   files = []
-  directories = listdir('../data/train/audio')
+  directories = listdir(filepath)
   for i in range(len(directories)):
     if directories[i] != '_background_noise_':
-      files += ['../data/train/audio/'+directories[i]+'/'+f+' '+directories[i] 
-              for f in listdir('../data/train/audio/'+directories[i]) 
-              if isfile(join('../data/train/audio/'+directories[i], f))]
+      files += [filepath+'/'+directories[i]+'/'+f+' '+directories[i] 
+              for f in listdir(filepath+'/'+directories[i]) 
+              if isfile(join(filepath+'/'+directories[i], f))]
 
-  train_file = open('../data/train/train_set.txt', 'w')
-  validation_file = open('../data/train/validation_set.txt', 'w')
-  test_file = open('../data/train/test_set.txt', 'w')
+  train_file = open(targetpath+'/train_set.txt', 'w')
+  validation_file = open(targetpath+'/validation_set.txt', 'w')
+  test_file = open(targetpath+'/test_set.txt', 'w')
 
   for file in files:
     if which_set(file, 20, 10) == 'training':
@@ -78,11 +78,13 @@ def make_set_files():
     elif which_set(file, 20, 10) == 'testing':
       test_file.write(file+'\n')
 
-def read_set_files():
+#make_set_files('../Data/train/audio','../Data/train')
+
+def read_set_files(filepath):
   #open document
-  train_file = open('../data/train/train_set.txt', 'r')
-  validation_file = open('../data/train/validation_set.txt', 'r')
-  test_file = open('../data/train/test_set.txt', 'r')
+  train_file = open(filepath+'/train_set.txt', 'r')
+  validation_file = open(filepath+'/validation_set.txt', 'r')
+  test_file = open(filepath+'/test_set.txt', 'r')
   #read document
   train = train_file.readlines()
   validation = validation_file.readlines()
@@ -94,9 +96,9 @@ def read_set_files():
 
   return train_list+validation_list+test_list
 
-def read_set_file(setname='training'):
+def read_set_file(filepath, setname='training'):
   if setname == 'training':
-    train_file = open('../data/train/train_set.txt', 'r')
+    train_file = open(filepath+'/train_set.txt', 'r')
     train = train_file.readlines()
     train_list = []
     for x in train:
@@ -105,7 +107,7 @@ def read_set_file(setname='training'):
       train_list.append([path, label])
     return train_list
   elif setname == 'validation':
-    validation_file = open('../data/train/validation_set.txt', 'r')
+    validation_file = open(filepath+'/validation_set.txt', 'r')
     validation = validation_file.readlines()
     validation_list = []
     for x in validation:
@@ -114,7 +116,7 @@ def read_set_file(setname='training'):
       validation_list.append([path, label])
     return validation_list
   elif setname == 'testing':
-    test_file = open('../data/train/test_set.txt', 'r')
+    test_file = open(filepath+'/test_set.txt', 'r')
     test = test_file.readlines()
     test_list = []
     for x in test:
