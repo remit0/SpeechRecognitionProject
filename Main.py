@@ -4,22 +4,24 @@ import numpy as np
 import torch.nn as nn
 import which_set as ws
 from torch.nn.utils import clip_grad_norm
+from torch.autograd import Variable
 
 # pylint: disable=E1101
 # Device configuration ###
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+torch.set_default_tensor_type('torch.DoubleTensor')
 
 # ResNet block setup ###
 class BasicBlock(nn.Module):
 
     def __init__(self, inplanes, planes, stride=1, downsample=None):
         super(BasicBlock, self).__init__()
-        self.conv1 = nn.Conv1d(inplanes, planes, kernel_size=3, stride=stride, padding=1, bias=False)  #what do i put here ?
+        self.conv1 = nn.Conv1d(inplanes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn1 = nn.BatchNorm1d(planes)                        
         self.relu = nn.ReLU(inplace=True)                           
-        self.conv2 = nn.Conv1d(planes, planes, stride=1, kernel_size=3, padding=1, bias=False)   #what do i put here ?
+        self.conv2 = nn.Conv1d(planes, planes, stride=1, kernel_size=3, padding=1, bias=False)
         self.bn2 = nn.BatchNorm1d(planes)
-        self.downsample = downsample            #for links between different blocks
+        self.downsample = downsample  
         self.stride = stride                     
 
     def forward(self, x):
@@ -32,7 +34,7 @@ class BasicBlock(nn.Module):
         out = self.conv2(out)
         out = self.bn2(out)
 
-        if self.downsample is not None:     #for links between different blocks
+        if self.downsample is not None:
             residual = self.downsample(x)
 
         out += residual
@@ -44,28 +46,27 @@ class BasicBlock(nn.Module):
 # Network : Resnet + BGRU ###
 class Network(nn.Module):
 
-    def __init__(self, block, layers, hidden_size, num_classes=1000): #numclasses ? not 1000 but what ?
-        self.inplanes = 64
-        self.hidden_size = hidden_size
-        super(Network, self).__init__()
-        self.conv1 = nn.Conv1d(1, 64, kernel_size=7, stride=2, padding=3,
-                               bias=False)
-        self.bn1 = nn.BatchNorm1d(64)       #first convolution -- what there ?
-        self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool1d(kernel_size=3, stride=2, padding=1)
-                                            #blocks actual Network
+    def __init__(self, block, layers, num_classes=1000): #numclasses ?#
+        self.inplanes = 64 #ok#
+        #self.hidden_size = hidden_size
+        super(Network, self).__init__() #ok#
+        self.conv1 = nn.Conv1d(1, 64, kernel_size=80, stride=4, padding=38,
+                               bias=False) #bias? dim of result?(4000)
+        self.bn1 = nn.BatchNorm1d(64) #ok#
+        self.relu = nn.ReLU(inplace=True) #ok#
+        self.maxpool = nn.MaxPool1d(kernel_size=40, stride=2, padding=19) #??? size(2000)#
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
-        self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
-                                            #end
-        self.avgpool = nn.AvgPool1d(7, stride=1)
-        self.fc1 = nn.Linear(512, num_classes)
-        self.gru = nn.GRU(num_classes, hidden_size, num_layers = 2, bias = True, 
-        bidirectional = True) #not sure if it should be utilised that way
-        self.fc2 = nn.Linear(hidden_size, 12, bias=True) #how to do many to many *12
+        self.layer4 = self._make_layer(block, 512, layers[3], stride=2) #size(250)
+        self.avgpool = nn.AvgPool1d(7, stride=1, padding=3) #size(250)
+        self.fc1 = nn.Linear(512, num_classes) #numclasses?#
+        self.gru = nn.GRU(num_classes, num_classes, num_layers = 2, bias = True, 
+        bidirectional = True) #hidden_size?#
+        self.fc2 = nn.Linear(num_classes, 12, bias=True) #how to do many to many *12
         #self.softmax = nn.Softmax()
-
+        #What about "silence"?
+        #What about weird recordings <1s ?
         for m in self.modules():            #initialise weights ? to be changed ? initialisation of gru ?
             if isinstance(m, nn.Conv1d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
@@ -75,7 +76,7 @@ class Network(nn.Module):
 
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
-        if stride != 1 or self.inplanes != planes: #check for block consistency, what about 0 padding
+        if stride != 1 or self.inplanes != planes:
             downsample = nn.Sequential(
                 nn.Conv1d(self.inplanes, planes,
                           kernel_size=1, stride=stride, bias=False),
@@ -110,14 +111,14 @@ class Network(nn.Module):
 
         return x
 
-model = Network(BasicBlock, [2, 2, 2, 2], 150).to(device)
-
+model = Network(BasicBlock, [2, 2, 2, 2], 200).to(device)
+#print(model)
 # Backpropagation through time ###
 #def detach(states):
 #    return [state.detach() for state in states] 
 
 # Loss and optimizer ###
-learning_rate = 0.0001              #to be set ? adaptative ?
+learning_rate = 0.0003            #to be set ? adaptative ?
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -128,12 +129,12 @@ training_list = ws.read_set_file('../Data/train','training')
 labels = ['yes','no','up','down','left','right','on','off','stop','go','unknown','silence']
 
 # Hyperparams ###
-num_epochs = 5
+num_epochs = 1
 seq_length = 16000
 hidden_size = 10
 num_layers = 10
-num_batches = 200
-batch_size = 100
+num_batches = 2
+batch_size = 10
 num_train_samples = len(training_list)
 
 # Data setup ###
@@ -157,8 +158,12 @@ for epoch in range(num_epochs):
     # initial weights ?
     for i in range(0, num_batches):
         # Get mini-batch inputs and targets
-        inputs = data[:, i, :].to(device)
-        targets = data_labels[:, i, :].to(device)
+        inputs = torch.ones([batch_size, 1, seq_length])
+        inputs[:, 0, :] = data[:, i, :]
+        inputs.to(device)
+        targets =  torch.ones([batch_size, 1, 12])
+        targets[:, 0, :] = data_labels[:, i, :]
+        targets.to(device)
 
         # Forward
         outputs = model(inputs)
@@ -176,40 +181,5 @@ for epoch in range(num_epochs):
             print ('Epoch [{}/{}], Step[{}/{}], Loss: {:.4f}, Perplexity: {:5.2f}'
             .format(epoch+1, num_epochs, step, num_batches, loss.item(), np.exp(loss.item())))
 
-"""
-### Train the model ###
-for epoch in range(num_epochs):
-    
-    # Set initial hidden and cell states
-    states = (torch.zeros(num_layers, batch_size, hidden_size).to(device), ####
-              torch.zeros(num_layers, batch_size, hidden_size).to(device)) ####
-    
-    # initialisation 
-    #
-
-    
-    for i in range(0, data.size - seq_length, seq_length):  #data.sze(1)
-        # Get mini-batch inputs and targets
-        inputs = data[:, i:i+seq_length].to(device)
-        targets = data[:, (i+1):(i+1)+seq_length].to(device)
-        
-        # Forward pass
-        states = detach(states)
-        outputs, states = model(inputs, states)
-        loss = criterion(outputs, targets.reshape(-1))
-        
-        # Backward and optimize
-        model.zero_grad()
-        loss.backward()
-        clip_grad_norm(model.parameters(), 0.5)
-        optimizer.step()
-
-        step = (i+1) // seq_length
-        if step % 100 == 0:
-            print ('Epoch [{}/{}], Step[{}/{}], Loss: {:.4f}, Perplexity: {:5.2f}'
-.format(epoch+1, num_epochs, step, num_batches, loss.item(), np.exp(loss.item())))
-"""
-
-
-
+print('ended')        
 # pylint: enable=E1101
