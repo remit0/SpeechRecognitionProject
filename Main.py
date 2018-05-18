@@ -3,13 +3,22 @@ import scipy.io.wavfile as scwav
 import numpy as np
 import torch.nn as nn
 import which_set as ws
-from torch.nn.utils import clip_grad_norm
+from torch.nn.utils import clip_grad_norm_
 from torch.autograd import Variable
 
 # pylint: disable=E1101
 # Device configuration ###
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.set_default_tensor_type('torch.DoubleTensor')
+
+# Hyperparams ###
+num_epochs = 5
+seq_length = 16000
+hidden_size = 10
+num_layers = 10
+num_batches = 100
+batch_size = 100
+
 
 # ResNet block setup ###
 class BasicBlock(nn.Module):
@@ -92,34 +101,19 @@ class Network(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        print(x.size())
         x = self.conv1(x)
-        print(x.size())
         x = self.bn1(x)
-        print(x.size())
         x = self.relu(x)
-        print(x.size())
         x = self.maxpool(x)
-        print(x.size())
-
         x = self.layer1(x)
-        print(x.size())
         x = self.layer2(x)
-        print(x.size())
         x = self.layer3(x)
-        print(x.size())
         x = self.layer4(x)
-        print(x.size())
-
         x = self.avgpool(x)
-        print(x.size())
         x = x.view(x.size(0), -1)
-        print(x.size())
         x = self.fc1(x)
-        print(x.size())
-        x = x.view(10, -1, 50)
-        print(x.size())
-        x, _ = self.gru(x)
+        x = x.view(batch_size, -1, 50) #what is features ?
+        x, _ = self.gru(x) #what to do with output?
         x = self.fc2(x)
         #x = self.softmax(x)
 
@@ -142,16 +136,7 @@ training_list = ws.read_set_file('../Data/train','training')
 # Parameters ###
 labels = ['yes','no','up','down','left','right','on','off','stop','go','unknown','silence']
 
-# Hyperparams ###
-num_epochs = 1
-seq_length = 16000
-hidden_size = 10
-num_layers = 10
-num_batches = 2
-batch_size = 10
-num_train_samples = len(training_list)
-
-# Data setup ###
+# Data setup ### What about data <1s ?
 data_numpy = np.zeros((batch_size, num_batches, seq_length))
 labels_numpy = np.zeros((batch_size, num_batches, 12))
 it = 0
@@ -168,15 +153,15 @@ for i in range(0, num_batches):
 data_labels = torch.from_numpy(labels_numpy)
 data = torch.from_numpy(data_numpy)
 
-for epoch in range(num_epochs):
-    # initial weights ?
+for epoch in range(num_epochs):                 # initial weights ???
     for i in range(0, num_batches):
         # Get mini-batch inputs and targets
         inputs = torch.ones([batch_size, 1, seq_length])
         inputs[:, 0, :] = data[:, i, :]
         inputs.to(device)
-        targets =  torch.ones([batch_size, 1, 12])
-        targets[:, 0, :] = data_labels[:, i, :]
+
+        targets = torch.ones([batch_size, 12], dtype=torch.long)
+        targets[:, :] = data_labels[:, i, :]
         targets.to(device)
 
         # Forward
@@ -186,14 +171,13 @@ for epoch in range(num_epochs):
         # Backward and optimize
         model.zero_grad()
         loss.backward()
-        clip_grad_norm(model.parameters(), 0.5)
+        clip_grad_norm_(model.parameters(), 0.5)
         optimizer.step()
 
         # Display
-        step = (i+1) // seq_length
+        step = i+1
         if step % 100 == 0:
-            print ('Epoch [{}/{}], Step[{}/{}], Loss: {:.4f}, Perplexity: {:5.2f}'
+            print ('Epoch [{}/{}], Batch[{}/{}], Loss: {:.4f}, Perplexity: {:5.2f}'
             .format(epoch+1, num_epochs, step, num_batches, loss.item(), np.exp(loss.item())))
-
-print('ended')        
+  
 # pylint: enable=E1101
