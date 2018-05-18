@@ -60,9 +60,9 @@ class Network(nn.Module):
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2) #size(250)
         self.avgpool = nn.AvgPool1d(7, stride=1, padding=3) #size(250)
-        self.fc1 = nn.Linear(512, num_classes) #numclasses?#
-        self.gru = nn.GRU(num_classes, num_classes, num_layers = 2, bias = True, 
-        bidirectional = True) #hidden_size?#
+        self.fc1 = nn.Linear((16000/(2**6))*512, num_classes) #numclasses?#
+        self.gru = nn.GRU(50, 100, num_layers = 2, bias = True, 
+        bidirectional = True, batch_first = True) #hidden_size?# #feature + hiddensize #
         self.fc2 = nn.Linear(num_classes, 12, bias=True) #how to do many to many *12
         #self.softmax = nn.Softmax()
         #What about "silence"?
@@ -92,19 +92,33 @@ class Network(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
+        print(x.size())
         x = self.conv1(x)
+        print(x.size())
         x = self.bn1(x)
+        print(x.size())
         x = self.relu(x)
+        print(x.size())
         x = self.maxpool(x)
+        print(x.size())
 
         x = self.layer1(x)
+        print(x.size())
         x = self.layer2(x)
+        print(x.size())
         x = self.layer3(x)
+        print(x.size())
         x = self.layer4(x)
+        print(x.size())
 
         x = self.avgpool(x)
+        print(x.size())
         x = x.view(x.size(0), -1)
+        print(x.size())
         x = self.fc1(x)
+        print(x.size())
+        x = x.view(10, -1, 50)
+        print(x.size())
         x, _ = self.gru(x)
         x = self.fc2(x)
         #x = self.softmax(x)
