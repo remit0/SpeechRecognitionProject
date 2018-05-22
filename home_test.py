@@ -123,19 +123,39 @@ class Network(nn.Module):
 
 model = Network(BasicBlock, [2, 2, 2, 2]).to(device)
 
+# Fine tuning - gru & fc2 ###
+for name, param in model.named_parameters():
+    if 'gru' in name:
+        param.requires_grad = False
+    if 'fc2' in name:
+        param.requires_grad = False
+
 # Loss and optimizer ###
 criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate)
 
-#model.gru.parameters()
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate) #see what to upgrade gru frozen
+for epoch in range(num_epochs):
+    
 
-# Read ###
+    for i in range(0, num_batches):
+        # Forward
+        outputs = model(inputs)
+        loss = criterion(outputs, targets)
+
+        # Backward and optimize
+        model.zero_grad()
+        loss.backward()
+        optimizer.step()
+        
+        # Display
+        print ('Epoch [{}/{}], Batch[{}/{}], Loss: {:.4f}, Perplexity: {:5.2f}'
+            .format(epoch+1, num_epochs, i+1, num_batches, loss.item(), np.exp(loss.item())))
+
+torch.save(model.state_dict(),'../Data/model_save.pkl')
+
+"""
+# Read ### data loader
 training_list = ws.read_set_file('../Data/train','training')        #how to get data from server ? #pc
-
-# Parameters ###
-
-# Data setup ### What about data <1s ?
-#data divide ?
 data_numpy = np.zeros((batch_size, num_batches, seq_length))
 labels_numpy = np.zeros((batch_size, num_batches, 12))
 it = 0
@@ -149,47 +169,7 @@ for i in range(0, num_batches):
             j += 1
         it += 1
 
-#torch.Dataloader('.wav')
-
 data_labels = torch.from_numpy(labels_numpy)
 data = torch.from_numpy(data_numpy)
-# 2 step training ??
-for epoch in range(num_epochs):                 # initial weights ???
-    #getitem make batch
-    for i in range(0, num_batches):
-        # Get mini-batch inputs and targets
-        inputs = torch.ones([batch_size, 1, seq_length])
-        inputs[:, 0, :] = data[:, i, :]
-        inputs.to(device)
-
-        targets = torch.ones([batch_size], dtype=torch.long)
-        for j in range(batch_size):
-            index = 0
-            for k in range(12):
-                if data_labels[j, i, k] == 1:
-                    index = k
-            targets[j] = index
-        targets.to(device)
-        print(targets)
-
-        # Forward
-        outputs = model(inputs)
-        loss = criterion(outputs, targets)
-
-        # Backward and optimize
-        model.zero_grad()
-        loss.backward()
-        optimizer.step()
-        
-        # Display
-        step = i+1 
-        #if step % 100 == 0:
-        print ('Epoch [{}/{}], Batch[{}/{}], Loss: {:.4f}, Perplexity: {:5.2f}'
-            .format(epoch+1, num_epochs, step, num_batches, loss.item(), np.exp(loss.item())))
-
-torch.save(model.state_dict(),'model_save.txt')
-
-#model = Network(BasicBlock, [2, 2, 2, 2], 200)
-#model.load_state_dict(torch.load('model_save.txt'))
-
+"""
 # pylint: enable=E1101
