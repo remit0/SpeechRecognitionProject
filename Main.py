@@ -3,8 +3,6 @@ import scipy.io.wavfile as scwav
 import numpy as np
 import torch.nn as nn
 import which_set as ws
-#from torch.nn.utils import clip_grad_norm_
-from torch.autograd import Variable
 
 # pylint: disable=E1101
 
@@ -14,7 +12,7 @@ torch.set_default_tensor_type('torch.DoubleTensor')
 
 # Hyperparams ###
 labels = ['yes','no','up','down','left','right','on','off','stop','go','unknown','silence']
-num_epochs = 5
+num_epochs = 2
 seq_length = 16000
 num_batches = 3
 batch_size = 3
@@ -48,7 +46,7 @@ class BasicBlock(nn.Module):
 
 class Network(nn.Module):
 
-    def __init__(self, block, layers, num_classes=512):
+    def __init__(self, block, layers):
         self.inplanes = 64
         super(Network, self).__init__()
         self.conv1 = nn.Conv1d(1, 64, kernel_size=80, stride=4, padding=38, bias=False) 
@@ -63,7 +61,7 @@ class Network(nn.Module):
         self.fc1 = nn.Linear(512, 512)
         self.gru = nn.GRU(512, 512, num_layers = 2, bidirectional = True, batch_first = True) #hiddensize(512)
         self.fc2 = nn.Linear(512*2, 12) #hiddensize*numdirection
-        self.softmax = nn.Softmax(dim=1)
+        self.softmax = nn.Softmax(dim=2)
 
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
@@ -88,6 +86,13 @@ class Network(nn.Module):
             layers.append(block(self.inplanes, planes))
 
         return nn.Sequential(*layers)
+    
+    def average(self, x):
+        avg = torch.zeros(x.size(0), x.size(2))
+        for i in range(x.size(0)):
+            for j in range(x.size(2)):
+                avg[i, j] = torch.sum(x[i, :, j]) / x.size(1)
+        return avg
 
     def forward(self, x):
         x = self.conv1(x)
@@ -97,7 +102,7 @@ class Network(nn.Module):
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
-        x = self.layer4(x)   #batchSize x features(512) x seqLen(500)
+        x = self.layer4(x)              #batchSize x features(512) x seqLen(500)
 
         x = torch.transpose(x,1,2)
         x = x.contiguous()
@@ -105,16 +110,18 @@ class Network(nn.Module):
 
         x = self.fc1(x)             
         x = x.view(batch_size, -1, 512) #batchSize x seqLen x features
-        x, _ = self.gru(x) #batchSize x seqLen x num_directions * hidden_size
+        x, _ = self.gru(x)              #batchSize x seqLen x num_directions * hidden_size
 
         x = x.contiguous()
         x = x.view(x.size(0)*x.size(1), -1) #batchSize*seqLen x 2*hidden_size
-        x = self.fc2(x) #batchSize*seqLen x 12
-        x = self.softmax(x) #batchSize*seqLen x 12
+        x = self.fc2(x)                 #batchSize*seqLen x 12
+        x = x.view(batch_size, -1, 12)  #batchSize x seqLen x 12
+        x = self.softmax(x)             #batchSize x seqLen x 12
+        x = self.average(x)             #batchSize x 12
 
         return x
 
-model = Network(BasicBlock, [2, 2, 2, 2], 200).to(device)
+model = Network(BasicBlock, [2, 2, 2, 2]).to(device)
 
 # Loss and optimizer ###
 criterion = nn.CrossEntropyLoss()
@@ -155,9 +162,15 @@ for epoch in range(num_epochs):                 # initial weights ???
         inputs[:, 0, :] = data[:, i, :]
         inputs.to(device)
 
-        targets = torch.ones([batch_size, 12], dtype=torch.long)
-        targets[:, :] = data_labels[:, i, :]
+        targets = torch.ones([batch_size], dtype=torch.long)
+        for j in range(batch_size):
+            index = 0
+            for k in range(12):
+                if data_labels[j, i, k] == 1:
+                    index = k
+            targets[j] = index
         targets.to(device)
+        print(targets)
 
         # Forward
         outputs = model(inputs)
