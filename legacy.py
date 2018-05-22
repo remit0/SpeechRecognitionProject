@@ -161,7 +161,7 @@ for epoch in range(num_epochs):                 # initial weights ???
         inputs = torch.ones([batch_size, 1, seq_length])
         inputs[:, 0, :] = data[:, i, :]
         inputs.to(device)
-
+        print(inputs.size())
         targets = torch.ones([batch_size], dtype=torch.long)
         for j in range(batch_size):
             index = 0
@@ -170,7 +170,6 @@ for epoch in range(num_epochs):                 # initial weights ???
                     index = k
             targets[j] = index
         targets.to(device)
-        print(targets)
 
         # Forward
         outputs = model(inputs)

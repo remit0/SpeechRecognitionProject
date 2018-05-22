@@ -3,6 +3,7 @@ import scipy.io.wavfile as scwav
 import numpy as np
 import torch.nn as nn
 import which_set as ws
+import itertools as itools
 
 # pylint: disable=E1101
 
@@ -134,10 +135,34 @@ for name, param in model.named_parameters():
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate)
 
-for epoch in range(num_epochs):
-    
+#validation_list = open('../Data/train/validation_list.txt','r')
+#testing_list = open('../Data/train/testing_list.txt','r')
+training_list = open('../Data/train/training_list.txt','r')
 
+for epoch in range(num_epochs):
     for i in range(0, num_batches):
+        # Get minibatch
+        inputs = torch.zeros([batch_size, 1, seq_length]).to(device)
+        targets = torch.zeros([batch_size], dtype=torch.long).to(device)
+        it = 0
+        for line in itools.islice(training_list, batch_size*i, batch_size*(i+1)):
+            line = line.strip()
+            print(line)
+            _, new_sample = scwav.read('../Data/train/audio/'+line)
+            new_sample = torch.from_numpy(new_sample)
+            label = line.split('/')
+            label = label[0]
+            if label in labels:
+                targets[it] = labels.index(label)
+            else:
+                targets[it] = 10
+            if len(new_sample) == seq_length:
+                inputs[it, 0, :] = new_sample
+            else:
+                padding = seq_length - len(new_sample)
+                inputs[it, 0, :] = torch.cat((new_sample, torch.zeros([padding])), 0) 
+            it += 1
+        print(inputs, targets)
         # Forward
         outputs = model(inputs)
         loss = criterion(outputs, targets)
