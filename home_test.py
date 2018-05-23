@@ -15,7 +15,7 @@ labels = ['yes','no','up','down','left','right','on','off','stop','go','unknown'
 num_epochs = 1
 seq_length = 16000
 num_batches = 2
-batch_size = 3
+batch_size = 15
 learning_rate = 0.0003
 
 class BasicBlock(nn.Module):
@@ -142,6 +142,7 @@ def training_first_step():
             # Setup batch
             inputs = torch.zeros([batch_size, 1, seq_length]).to(device)
             targets = torch.zeros([batch_size], dtype=torch.long).to(device)
+            # Access files by reading "training_list.txt"
             it = 0
             for line in itools.islice(training_list, batch_size*i, batch_size*(i+1)):
                 line = line.strip()
@@ -149,10 +150,12 @@ def training_first_step():
                 new_sample = torch.from_numpy(new_sample)
                 label = line.split('/')
                 label = label[0]
+                # Setup targets
                 if label in labels:
                     targets[it] = labels.index(label)
                 else:
                     targets[it] = 10
+                # Setup data -> use padding if seq_length != 16000
                 if len(new_sample) == seq_length:
                     inputs[it, 0, :] = new_sample
                 else:
@@ -225,7 +228,48 @@ def training_second_step():
     training_list.close()
     torch.save(model.state_dict(),'../Data/model_save_final.pkl')
 
-training_first_step()
-training_second_step()
+def testing():
+    model = Network(BasicBlock, [2, 2, 2, 2]).to(device)
+    model.load_state_dict(torch.load('../Data/model_save_final.pkl'))
+    model.eval()
+
+    with torch.no_grad():
+        testing_list = open('../Data/train/t.txt', 'r')
+        # Setup batch
+        inputs = torch.zeros([batch_size, 1, seq_length]).to(device)
+        targets = torch.zeros([batch_size], dtype=torch.long).to(device)
+        it = 0
+        for line in itools.islice(testing_list, 0, batch_size):
+            line = line.strip()
+            _, new_sample = scwav.read('../Data/train/audio/'+line)
+            new_sample = torch.from_numpy(new_sample)
+            label = line.split('/')
+            label = label[0]
+            print(label)
+            if label in labels:
+                targets[it] = labels.index(label)
+            else:
+                targets[it] = 10
+            if len(new_sample) == seq_length:
+                inputs[it, 0, :] = new_sample
+            else:
+                padding = seq_length - len(new_sample)
+                inputs[it, 0, :] = torch.cat((new_sample, torch.zeros([padding], dtype = torch.short)), 0) 
+            it += 1
+
+        # Forward
+        outputs = model(inputs)
+                
+        # Comparing
+        _, predicted = torch.max(outputs.data, 1)
+        total = targets.size(0)
+        correct = (predicted == targets).sum().item()
+        print('Accuracy of the network: %d %%' % (100 * correct / total))
+
+
+# Main ###
+#training_first_step()
+#training_second_step()
+testing()
 
 # pylint: enable=E1101, W0612
