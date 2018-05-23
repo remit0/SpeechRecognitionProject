@@ -2,10 +2,9 @@ import torch
 import scipy.io.wavfile as scwav
 import numpy as np
 import torch.nn as nn
-import which_set as ws
 import itertools as itools
 
-# pylint: disable=E1101
+# pylint: disable=E1101, W0612
 
 # Device configuration ###
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -13,9 +12,9 @@ torch.set_default_tensor_type('torch.DoubleTensor')
 
 # Hyperparams ###
 labels = ['yes','no','up','down','left','right','on','off','stop','go','unknown','silence']
-num_epochs = 2
+num_epochs = 1
 seq_length = 16000
-num_batches = 3
+num_batches = 2
 batch_size = 3
 learning_rate = 0.0003
 
@@ -122,79 +121,111 @@ class Network(nn.Module):
 
         return x
 
-model = Network(BasicBlock, [2, 2, 2, 2]).to(device)
+def training_first_step():
+    model = Network(BasicBlock, [2, 2, 2, 2]).to(device)
 
-# Fine tuning - gru & fc2 ###
-for name, param in model.named_parameters():
-    if 'gru' in name:
-        param.requires_grad = False
-    if 'fc2' in name:
-        param.requires_grad = False
+    # Fine tuning - gru & fc2 ###
+    for name, param in model.named_parameters():
+        if 'gru' in name:
+            param.requires_grad = False
+        if 'fc2' in name:
+            param.requires_grad = False
 
-# Loss and optimizer ###
-criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate)
+    # Loss and optimizer ###
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate)
 
-#validation_list = open('../Data/train/validation_list.txt','r')
-#testing_list = open('../Data/train/testing_list.txt','r')
-training_list = open('../Data/train/training_list.txt','r')
+    training_list = open('../Data/train/training_list.txt','r')
 
-for epoch in range(num_epochs):
-    for i in range(0, num_batches):
-        # Get minibatch
-        inputs = torch.zeros([batch_size, 1, seq_length]).to(device)
-        targets = torch.zeros([batch_size], dtype=torch.long).to(device)
-        it = 0
-        for line in itools.islice(training_list, batch_size*i, batch_size*(i+1)):
-            line = line.strip()
-            print(line)
-            _, new_sample = scwav.read('../Data/train/audio/'+line)
-            new_sample = torch.from_numpy(new_sample)
-            label = line.split('/')
-            label = label[0]
-            if label in labels:
-                targets[it] = labels.index(label)
-            else:
-                targets[it] = 10
-            if len(new_sample) == seq_length:
-                inputs[it, 0, :] = new_sample
-            else:
-                padding = seq_length - len(new_sample)
-                inputs[it, 0, :] = torch.cat((new_sample, torch.zeros([padding])), 0) 
-            it += 1
-        print(inputs, targets)
-        # Forward
-        outputs = model(inputs)
-        loss = criterion(outputs, targets)
+    for epoch in range(num_epochs):
+        for i in range(0, num_batches):
+            # Setup batch
+            inputs = torch.zeros([batch_size, 1, seq_length]).to(device)
+            targets = torch.zeros([batch_size], dtype=torch.long).to(device)
+            it = 0
+            for line in itools.islice(training_list, batch_size*i, batch_size*(i+1)):
+                line = line.strip()
+                _, new_sample = scwav.read('../Data/train/audio/'+line)
+                new_sample = torch.from_numpy(new_sample)
+                label = line.split('/')
+                label = label[0]
+                if label in labels:
+                    targets[it] = labels.index(label)
+                else:
+                    targets[it] = 10
+                if len(new_sample) == seq_length:
+                    inputs[it, 0, :] = new_sample
+                else:
+                    padding = seq_length - len(new_sample)
+                    inputs[it, 0, :] = torch.cat((new_sample, torch.zeros([padding], dtype = torch.short)), 0) 
+                it += 1
 
-        # Backward and optimize
-        model.zero_grad()
-        loss.backward()
-        optimizer.step()
-        
-        # Display
-        print ('Epoch [{}/{}], Batch[{}/{}], Loss: {:.4f}, Perplexity: {:5.2f}'
-            .format(epoch+1, num_epochs, i+1, num_batches, loss.item(), np.exp(loss.item())))
+            # Forward
+            outputs = model(inputs)
+            loss = criterion(outputs, targets)
 
-torch.save(model.state_dict(),'../Data/model_save.pkl')
+            # Backward and optimize
+            model.zero_grad()
+            loss.backward()
+            optimizer.step()
+            
+            # Display
+            print ('Epoch [{}/{}], Batch[{}/{}], Loss: {:.4f}, Perplexity: {:5.2f}'
+                .format(epoch+1, num_epochs, i+1, num_batches, loss.item(), np.exp(loss.item())))
+                
+    training_list.close()
+    torch.save(model.state_dict(),'../Data/model_save.pkl')
 
-"""
-# Read ### data loader
-training_list = ws.read_set_file('../Data/train','training')        #how to get data from server ? #pc
-data_numpy = np.zeros((batch_size, num_batches, seq_length))
-labels_numpy = np.zeros((batch_size, num_batches, 12))
-it = 0
-for i in range(0, num_batches):
-    j = 0
-    while(j < batch_size):
-        _, new_sample = scwav.read(training_list[it][0])
-        if len(new_sample) == seq_length:
-            data_numpy[j, i, :] = new_sample
-            labels_numpy[j, i, :] = ws.label2vector(training_list[it][1])
-            j += 1
-        it += 1
+def training_second_step():
+    model = Network(BasicBlock, [2, 2, 2, 2]).to(device)
+    model.load_state_dict(torch.load('../Data/model_save.pkl'))
 
-data_labels = torch.from_numpy(labels_numpy)
-data = torch.from_numpy(data_numpy)
-"""
-# pylint: enable=E1101
+    # Loss and optimizer ###
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    training_list = open('../Data/train/training_list.txt','r')
+
+    for epoch in range(num_epochs):
+        for i in range(0, num_batches):
+            # Setup batch
+            inputs = torch.zeros([batch_size, 1, seq_length]).to(device)
+            targets = torch.zeros([batch_size], dtype=torch.long).to(device)
+            it = 0
+            for line in itools.islice(training_list, batch_size*i, batch_size*(i+1)):
+                line = line.strip()
+                _, new_sample = scwav.read('../Data/train/audio/'+line)
+                new_sample = torch.from_numpy(new_sample)
+                label = line.split('/')
+                label = label[0]
+                if label in labels:
+                    targets[it] = labels.index(label)
+                else:
+                    targets[it] = 10
+                if len(new_sample) == seq_length:
+                    inputs[it, 0, :] = new_sample
+                else:
+                    padding = seq_length - len(new_sample)
+                    inputs[it, 0, :] = torch.cat((new_sample, torch.zeros([padding], dtype = torch.short)), 0) 
+                it += 1
+
+            # Forward
+            outputs = model(inputs)
+            loss = criterion(outputs, targets)
+
+            # Backward and optimize
+            model.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            # Display
+            print ('Epoch [{}/{}], Batch[{}/{}], Loss: {:.4f}, Perplexity: {:5.2f}'
+                .format(epoch+1, num_epochs, i+1, num_batches, loss.item(), np.exp(loss.item())))
+
+    training_list.close()
+    torch.save(model.state_dict(),'../Data/model_save_final.pkl')
+
+training_first_step()
+training_second_step()
+
+# pylint: enable=E1101, W0612
