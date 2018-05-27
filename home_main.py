@@ -9,7 +9,9 @@ from random import randint
 
 # pylint: disable=E1101, W0612
 """
-Problems to be solved : 
+La liste des courses : 
+"""
+"""
 sending work to GPU + access server data
 verify silence class
 what about creating a folder with silence in the server + training_list ?
@@ -17,7 +19,6 @@ testing procedure
 validation procedure
 save results at each step // validation + test set
 litterature review + what to do + plan mFCC combine (noisy conditions) spectogram
-randomly select at each epoch 2000 unknown examples
 validation set : early stopping accuracy decrease? fix number of epochs 20
 loss and accuracy curves 
 """
@@ -38,31 +39,71 @@ class SRCdataset(Dataset):
         self.root_dir = root_dir
         #build data set list
         with open(txt_file, 'r') as datalist:
+            # for testing and validation we use everthing
             if 'training' not in txt_file:
                 self.data_list = [x.strip() for x in datalist.readlines()]
+                self.unknown = []
+            # for training we have to balance the dataset
             else:
-                repartition = np.ones((12), dtype = np.int16)
+                repartition = np.zeros((12), dtype = np.int16)
                 data = [x.strip() for x in datalist.readlines()]
-                unknown = []
+                data_list = []
+                unknown_list = []
+                # balancing the unknown set
                 for x in data:
                     xlabel = x.split('/')
                     xlabel = xlabel[0]
                     if xlabel in labels:
                         repartition[labels.index(xlabel)] += 1
+                        data_list.append(x)
                     else:
-                        unknown.append(x)
-                        data.remove(x)
+                        unknown_list.append(x)
+
                 for i in range(repartition[0]):
-                    sample_index = randint(0, len(unknown)-1)
-                    data.append(unknown[sample_index])
+                    sample_index = randint(0, len(unknown_list)-1)
+                    data_list.append(unknown_list[sample_index])
                 repartition[10] = repartition[0]
-                print('Current label distribution :  ', repartition)
-                print(len(data), np.sum(repartition))
-                self.data_list = data
+                print('Class distribution :  ', [(labels[i], repartition[i]) for i in range(12)])
+
+                self.data_list = data_list
+                self.unknown = unknown_list
                 
+    def shuffleUnknown(self):
+        # remove previous unknown samples
+        new_data_list = []
+        ucount = 0
+        for x in self.data_list:
+            xlabel = x.split('/')
+            xlabel = xlabel[0]
+            if xlabel in labels:
+                new_data_list.append(x)
+            else:
+                ucount += 1
 
-
+        # sample new ones
+        for i in range(ucount):
+            sample_index = randint(0, len(self.unknown)-1)
+            new_data_list.append(self.unknown[sample_index])
         
+        self.data_list = new_data_list
+    
+    def reduceDataset(self, label_size):
+        repartition = np.zeros((12), dtype = np.int16)
+        new_data_list = []
+        for x in self.data_list:
+            xlabel = x.split('/')
+            xlabel = xlabel[0]
+            if xlabel in labels:
+                if repartition[labels.index(xlabel)] < label_size:
+                    new_data_list.append(x)
+                    repartition[labels.index(xlabel)] += 1
+                
+            else:
+                if repartition[10] < label_size:
+                    new_data_list.append(x)
+                    repartition[10] += 1
+        print('Reduced class distribution :  ', [(labels[i], repartition[i]) for i in range(12)])
+        self.data_list = new_data_list
 
     def __len__(self):
         return len(self.data_list)
@@ -179,16 +220,17 @@ class Network(nn.Module):
 
         x = torch.transpose(x,1,2)
         x = x.contiguous()
+        bsize = x.size(0)
         x = x.view(x.size(0)*x.size(1), -1) #batchSize*seqLen x features
 
         x = self.fc1(x)             
-        x = x.view(batch_size, -1, 512) #batchSize x seqLen x features
+        x = x.view(bsize, -1, 512) #batchSize x seqLen x features
         x, _ = self.gru(x)              #batchSize x seqLen x num_directions * hidden_size
 
         x = x.contiguous()
         x = x.view(x.size(0)*x.size(1), -1) #batchSize*seqLen x 2*hidden_size
         x = self.fc2(x)                 #batchSize*seqLen x 12
-        x = x.view(batch_size, -1, 12)  #batchSize x seqLen x 12
+        x = x.view(bsize, -1, 12)  #batchSize x seqLen x 12
         x = self.softmax(x)             #batchSize x seqLen x 12
         x = self.average(x)             #batchSize x 12
 
@@ -210,8 +252,10 @@ def training_first_step():
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate)
 
     dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
+    dataset.reduceDataset(20)
     num_batches = dataset.__len__() // batch_size
     for epoch in range(num_epochs):
+        dataset.shuffleUnknown()
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, drop_last=True)
         for i_batch, batch in enumerate(dataloader):
             # Forward
@@ -228,17 +272,17 @@ def training_first_step():
                 .format(epoch+1, num_epochs, i_batch+1, num_batches, loss.item(), np.exp(loss.item())))
             
             # Save loss
-            with open('../Data/loss_step_1.txt', 'a') as myfile:
-                myfile.write(loss.item()+'\n')
+            with open('../Data/results/monitoring/loss_step_1.txt', 'a') as myfile:
+                myfile.write(str(loss.item())+'\n')
             
         # Save model, accuracy at each epoch
-        torch.save(model.state_dict(),'../Data/model_save_ResNet_'+str(epoch+1)+'.pkl')
+        torch.save(model.state_dict(),'../Data/results/model_save/model_save_ResNet_'+str(epoch+1)+'.pkl')
 
 
 
 def training_second_step():
     model = Network(BasicBlock, [2, 2, 2, 2]).to(device)
-    model.load_state_dict(torch.load('../Data/model_save_ResNet_'+str(num_epochs)+'.pkl'))
+    model.load_state_dict(torch.load('../Data/results/model_save/model_save_ResNet_'+str(num_epochs)+'.pkl'))
 
     for params in model.parameters():
         params.requires_grad = False
@@ -255,8 +299,10 @@ def training_second_step():
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate)
 
     dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
+    dataset.reduceDataset(20)
     num_batches = dataset.__len__() // batch_size
     for epoch in range(num_epochs):
+        dataset.shuffleUnknown()
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, drop_last=True)
         for i_batch, batch in enumerate(dataloader):
             # Forward
@@ -273,25 +319,29 @@ def training_second_step():
                 .format(epoch+1, num_epochs, i_batch+1, num_batches, loss.item(), np.exp(loss.item())))
 
             # Save loss
-            with open('../Data/loss_step_2.txt', 'a') as myfile:
-                myfile.write(loss.item()+'\n')
+            with open('../Data/results/monitoring/loss_step_2.txt', 'a') as myfile:
+                myfile.write(str(loss.item())+'\n')
         
         # Save model, accuracy at each epoch
-        torch.save(model.state_dict(),'../Data/model_save_BGRU_'+str(epoch+1)+'.pkl')
+        torch.save(model.state_dict(),'../Data/results/model_save/model_save_BGRU_'+str(epoch+1)+'.pkl')
 
 
 
 def training_third_step():
     model = Network(BasicBlock, [2, 2, 2, 2]).to(device)
-    model.load_state_dict(torch.load('../Data/model_save_BGRU_'+str(num_epochs)+'.pkl'))
+    model.load_state_dict(torch.load('../Data/results/model_save/model_save_BGRU_'+str(num_epochs)+'.pkl'))
 
     # Loss and optimizer ###
+    for params in model.parameters():
+        params.requires_grad = True
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate*0.1)
 
     dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
+    dataset.reduceDataset(20)
     num_batches = dataset.__len__() // batch_size
     for epoch in range(num_epochs):
+        dataset.shuffleUnknown()
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, drop_last=True)
         for i_batch, batch in enumerate(dataloader):
             # Forward
@@ -308,17 +358,23 @@ def training_third_step():
                 .format(epoch+1, num_epochs, i_batch+1, num_batches, loss.item(), np.exp(loss.item())))
             
             # Save loss
-            with open('../Data/loss_step_3.txt', 'a') as myfile:
-                myfile.write(loss.item()+'\n')
+            with open('../Data/results/monitoring/loss_step_3.txt', 'a') as myfile:
+                myfile.write(str(loss.item())+'\n')
 
         # Save model, accuracy at each epoch
-        torch.save(model.state_dict(),'../Data/model_save_final_'+str(epoch+1)+'.pkl')
+        torch.save(model.state_dict(),'../Data/results/model_save/model_save_final_'+str(epoch+1)+'.pkl')
 
 
 
 
 
 # Main ###
+# clear previous results
+open('../Data/results/monitoring/loss_step_1.txt', 'w').close()
+open('../Data/results/monitoring/loss_step_2.txt', 'w').close()
+open('../Data/results/monitoring/loss_step_3.txt', 'w').close()
+
+#training phase
 training_first_step()
 training_second_step()
 training_third_step()
