@@ -392,6 +392,40 @@ def training_third_step(data_list, unknown, root_dir):
         torch.save(model.state_dict(),'../Data/results/model_save/model_save_final_'+str(epoch+1)+'.pkl')
         evaluation(model)
 
+def end_to_end_training():
+    model = Network(BasicBlock, [2, 2, 2, 2]).to(device)
+
+    # Loss and optimizer ###
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
+    num_batches = dataset.__len__() // batch_size
+    for epoch in range(num_epochs):
+        dataset.shuffleUnknown()
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, drop_last=True)
+        for i_batch, batch in enumerate(dataloader):
+            # Forward
+            outputs = model(batch['audio'].unsqueeze(1))
+            loss = criterion(outputs, batch['label'])
+
+            # Backward and optimize
+            model.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            # Display
+            print ('Epoch [{}/{}], Batch[{}/{}], Loss: {:.4f}, Perplexity: {:5.2f}'
+                .format(epoch+1, num_epochs, i_batch+1, num_batches, loss.item(), np.exp(loss.item())))
+            
+            # Save loss
+            with open('../Data/results/monitoring/Xperience.txt', 'a') as myfile:
+                myfile.write(str(loss.item())+'\n')
+
+        # Save model, accuracy at each epoch
+        torch.save(model.state_dict(),'../Data/results/model_save/end_to_end.pkl')
+        evaluation(model)
+
 
 def evaluation(model):
     total = 0
@@ -420,8 +454,9 @@ open('../Data/results/monitoring/loss_step_2.txt', 'w').close()
 open('../Data/results/monitoring/loss_step_3.txt', 'w').close()
 
 #training phase
-data_list, unknown, root_dir = training_first_step()
-training_second_step(data_list, unknown, root_dir)
-training_third_step(data_list, unknown, root_dir)
+#end_to_end_training()
+#data_list, unknown, root_dir = training_first_step()
+#training_second_step(data_list, unknown, root_dir)
+#training_third_step(data_list, unknown, root_dir)
 
 # pylint: enable=E1101, W0612
