@@ -104,6 +104,25 @@ class SRCdataset(Dataset):
                     repartition[10] += 1
         print('Reduced class distribution :  ', [(labels[i], repartition[i]) for i in range(12)])
         self.data_list = new_data_list
+    
+    def display(self):
+        repartition = np.zeros((12), dtype = np.int16)
+        for x in self.data_list:
+            xlabel = x.split('/')
+            xlabel = xlabel[0]
+            if xlabel in labels:
+                repartition[labels.index(xlabel)] += 1
+            else:
+                repartition[10] += 1
+        print(repartition)
+    
+    def export(self):
+        return self.data_list, self.unknown, self.root_dir
+
+    def copy(self, data_list, unknown, root_dir):
+        self.data_list = data_list
+        self.unknown = unknown
+        self.root_dir = root_dir
 
     def __len__(self):
         return len(self.data_list)
@@ -277,10 +296,14 @@ def training_first_step():
             
         # Save model, accuracy at each epoch
         torch.save(model.state_dict(),'../Data/results/model_save/model_save_ResNet_'+str(epoch+1)+'.pkl')
+        evaluation(model)
+    
+    data_list, unknown, root_dir = dataset.export()
+    return data_list, unknown, root_dir
 
 
 
-def training_second_step():
+def training_second_step(data_list, unknown, root_dir):
     model = Network(BasicBlock, [2, 2, 2, 2]).to(device)
     model.load_state_dict(torch.load('../Data/results/model_save/model_save_ResNet_'+str(num_epochs)+'.pkl'))
 
@@ -299,7 +322,7 @@ def training_second_step():
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate)
 
     dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
-    dataset.reduceDataset(20)
+    dataset.copy(data_list, unknown, root_dir)
     num_batches = dataset.__len__() // batch_size
     for epoch in range(num_epochs):
         dataset.shuffleUnknown()
@@ -324,10 +347,14 @@ def training_second_step():
         
         # Save model, accuracy at each epoch
         torch.save(model.state_dict(),'../Data/results/model_save/model_save_BGRU_'+str(epoch+1)+'.pkl')
+        evaluation(model)
+
+    data_list, unknown, root_dir = dataset.export()
+    return data_list, unknown, root_dir
 
 
 
-def training_third_step():
+def training_third_step(data_list, unknown, root_dir):
     model = Network(BasicBlock, [2, 2, 2, 2]).to(device)
     model.load_state_dict(torch.load('../Data/results/model_save/model_save_BGRU_'+str(num_epochs)+'.pkl'))
 
@@ -338,7 +365,7 @@ def training_third_step():
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate*0.1)
 
     dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
-    dataset.reduceDataset(20)
+    dataset.copy(data_list, unknown, root_dir)
     num_batches = dataset.__len__() // batch_size
     for epoch in range(num_epochs):
         dataset.shuffleUnknown()
@@ -363,20 +390,38 @@ def training_third_step():
 
         # Save model, accuracy at each epoch
         torch.save(model.state_dict(),'../Data/results/model_save/model_save_final_'+str(epoch+1)+'.pkl')
+        evaluation(model)
 
 
-
+def evaluation(model):
+    total = 0
+    correct = 0
+    model.eval()
+    dataset = SRCdataset('../Data/train/validation_list.txt', '../Data/train/audio')
+    dataset.reduceDataset(2)
+    dataloader = DataLoader(dataset, batch_size = 2, drop_last = True)
+    with torch.no_grad():
+        for i_batch, batch in enumerate(dataloader):
+            outputs = model(batch['audio'].unsqueeze(1))
+            _, predicted = torch.max(outputs.data, 1)
+            total += 2
+            correct += (predicted == batch['label']).sum().item()
+    print('Accuracy of the network : %d %%' % (100 * correct / total))
+    with open('../Data/results/monitoring/accuracies.txt', 'a') as f:
+        f.write(str(100 * correct / total)+'\n')
+    model.train()
 
 
 # Main ###
 # clear previous results
+open('../Data/results/monitoring/accuracies.txt', 'w').close()
 open('../Data/results/monitoring/loss_step_1.txt', 'w').close()
 open('../Data/results/monitoring/loss_step_2.txt', 'w').close()
 open('../Data/results/monitoring/loss_step_3.txt', 'w').close()
 
 #training phase
-training_first_step()
-training_second_step()
-training_third_step()
+data_list, unknown, root_dir = training_first_step()
+training_second_step(data_list, unknown, root_dir)
+training_third_step(data_list, unknown, root_dir)
 
 # pylint: enable=E1101, W0612
