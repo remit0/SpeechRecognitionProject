@@ -30,7 +30,7 @@ torch.set_default_tensor_type('torch.DoubleTensor')
 labels = ['yes','no','up','down','left','right','on','off','stop','go','unknown','silence']
 num_epochs = 1
 seq_length = 16000
-batch_size = 2
+batch_size = 6
 learning_rate = 0.0003
 
 class SRCdataset(Dataset):
@@ -146,7 +146,7 @@ class SRCdataset(Dataset):
         if len(new_sample) != seq_length:
             padding = seq_length - len(new_sample)
             new_sample = torch.cat((new_sample, torch.zeros([padding], dtype = torch.short)), 0)
-        new_sample = new_sample.type(torch.DoubleTensor).to(device)
+        new_sample = new_sample.type(torch.DoubleTensor)
         #result
         sample = {'audio': new_sample, 'label': label_idx}
         return sample
@@ -192,8 +192,8 @@ class Network(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
 
         self.fc1 = nn.Linear(512, 512)
-        self.gru = nn.GRU(512, 512, num_layers = 2, bidirectional = True, batch_first = True) #hiddensize(512)
-        self.fc2 = nn.Linear(512*2, 12) #hiddensize*numdirection
+        self.gru = nn.GRU(512, 256, num_layers = 2, bidirectional = True, batch_first = True) #hiddensize(512)
+        self.fc2 = nn.Linear(256*2, 12) #hiddensize*numdirection
         self.softmax = nn.Softmax(dim=2)
 
         for m in self.modules():
@@ -400,13 +400,14 @@ def end_to_end_training():
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
+    dataset.reduceDataset(1200)
     num_batches = dataset.__len__() // batch_size
     for epoch in range(num_epochs):
         dataset.shuffleUnknown()
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, drop_last=True)
         for i_batch, batch in enumerate(dataloader):
             # Forward
-            outputs = model(batch['audio'].unsqueeze(1))
+            outputs = model(batch['audio'].unsqueeze(1).to(device))
             loss = criterion(outputs, batch['label'])
 
             # Backward and optimize
@@ -432,26 +433,31 @@ def evaluation(model):
     correct = 0
     model.eval()
     dataset = SRCdataset('../Data/train/validation_list.txt', '../Data/train/audio')
-    dataset.reduceDataset(2)
+    dataset.reduceDataset(200)
+    num_batches = dataset.__len__() // 2
     dataloader = DataLoader(dataset, batch_size = 2, drop_last = True)
     with torch.no_grad():
         for i_batch, batch in enumerate(dataloader):
-            outputs = model(batch['audio'].unsqueeze(1))
+            outputs = model(batch['audio'].unsqueeze(1).to(device))
             _, predicted = torch.max(outputs.data, 1)
             total += 2
             correct += (predicted == batch['label']).sum().item()
+            print('Batch[{}/{}], Accuracy: {:.4f}'.format(i_batch+1, num_batches, 100*total/correct))
+
     print('Accuracy of the network : %d %%' % (100 * correct / total))
     with open('../Data/results/monitoring/accuracies.txt', 'a') as f:
         f.write(str(100 * correct / total)+'\n')
     model.train()
 
-
+model = Network(BasicBlock, [2, 2, 2, 2]).to(device)
+model.load_state_dict(torch.load('../Data/results/model_save/end_to_end.pkl'))
+evaluation(model)
 # Main ###
 # clear previous results
-open('../Data/results/monitoring/accuracies.txt', 'w').close()
-open('../Data/results/monitoring/loss_step_1.txt', 'w').close()
-open('../Data/results/monitoring/loss_step_2.txt', 'w').close()
-open('../Data/results/monitoring/loss_step_3.txt', 'w').close()
+#open('../Data/results/monitoring/accuracies.txt', 'w').close()
+#open('../Data/results/monitoring/loss_step_1.txt', 'w').close()
+#open('../Data/results/monitoring/loss_step_2.txt', 'w').close()
+#open('../Data/results/monitoring/loss_step_3.txt', 'w').close()
 
 #training phase
 #end_to_end_training()

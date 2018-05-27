@@ -2,7 +2,6 @@ from os import listdir
 from os.path import isfile, join
 import scipy.io.wavfile as scwav
 import numpy as np
-import acoustics
 from random import randint, uniform
 
 def make_training_list():
@@ -27,6 +26,7 @@ def make_training_list():
         if filename not in notTrain:
             train_file.write(filename+'\n')
 
+#make_training_list()
 
 def silence_generator():
     path = '../Data/train/audio/_background_noise_'
