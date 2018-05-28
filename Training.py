@@ -28,7 +28,7 @@ torch.set_default_tensor_type('torch.DoubleTensor')
 
 # Hyperparams
 num_epochs = 1
-batch_size = 6
+batch_size = 10
 learning_rate = 0.0003
 
 """
@@ -262,7 +262,7 @@ MAIN
 #open('../Data/results/monitoring/loss_step_3.txt', 'w').close()
 
 #training phase
-#end_to_end_training()
+end_to_end_training()
 #data_list, unknown, root_dir = training_first_step()
 #training_second_step(data_list, unknown, root_dir)
 #training_third_step(data_list, unknown, root_dir)
