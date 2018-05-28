@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 
-
 def lossDisplay(filename):
     with open(filename,'r') as lossData:
         losses = [float(x.strip()) for x in lossData.readlines()]
