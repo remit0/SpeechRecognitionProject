@@ -121,6 +121,5 @@ class SRCdataset(Dataset):
             padding = seq_length - len(new_sample)
             new_sample = torch.cat((new_sample, torch.zeros([padding], dtype = torch.short)), 0)
         new_sample = new_sample.type(torch.DoubleTensor)
-
         sample = {'audio': new_sample, 'label': label_idx}
         return sample

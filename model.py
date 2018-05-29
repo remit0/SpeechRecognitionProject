@@ -44,8 +44,8 @@ class Network(nn.Module):
         self.layer4 = self._make_layer(block, 512, 2, stride=2)
 
         self.fc1 = nn.Linear(512, 512)
-        self.gru = nn.GRU(512, 256, num_layers = 2, bidirectional = True, batch_first = True) #hiddensize(512)
-        self.fc2 = nn.Linear(256*2, 12) #hiddensize*numdirection
+        self.gru = nn.GRU(512, 512, num_layers = 2, bidirectional = True, batch_first = True) #hiddensize(512)
+        self.fc2 = nn.Linear(512*2, 12) #hiddensize*numdirection
         self.softmax = nn.Softmax(dim=2)
 
         for m in self.modules():
@@ -94,7 +94,7 @@ class Network(nn.Module):
         bsize = x.size(0)
         x = x.view(x.size(0)*x.size(1), -1) #batchSize*seqLen x features
 
-        x = self.fc1(x)             
+        x = self.fc1(x)
         x = x.view(bsize, -1, 512) #batchSize x seqLen x features
         x, _ = self.gru(x)              #batchSize x seqLen x num_directions * hidden_size
 

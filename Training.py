@@ -28,8 +28,8 @@ torch.set_default_tensor_type('torch.DoubleTensor')
 
 # Hyperparams
 num_epochs = 1
-batch_size = 10
-learning_rate = 0.0003
+batch_size = 4
+learning_rate = 0.003
 
 """
 THREE STEP TRAINING
@@ -211,7 +211,7 @@ def end_to_end_training():
             optimizer.step()
 
             # Display
-            print ('Epoch [{}/{}], Batch[{}/{}], Loss: {:.4f}'
+            print ('Epoch [{}/{}], Batch[{}/{}], Loss: {:.9f}'
                 .format(epoch+1, num_epochs, i_batch+1, num_batches, loss.item()))
             
             # Save loss
@@ -243,7 +243,7 @@ def evaluation(model):
             _, predicted = torch.max(outputs.data, 1)
             total += batchsize
             correct += (predicted == batch['label']).sum().item()
-            print('Batch[{}/{}], Accuracy: {:.4f}'.format(i_batch+1, num_batches, 100*total/correct))
+            print('Batch[{}/{}], Accuracy: {:.9f}'.format(i_batch+1, num_batches, 100*total/correct))
 
     print('Accuracy of the network : %d %%' % (100 * correct / total))
     with open('../Data/results/monitoring/accuracies.txt', 'a') as f:
