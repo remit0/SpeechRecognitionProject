@@ -193,12 +193,12 @@ def end_to_end_training():
 
     # Dataset
     dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
-    dataset.reduceDataset(1200)
+    dataset.reduceDataset(400)
     num_batches = dataset.__len__() // batch_size
 
     for epoch in range(num_epochs):
         dataset.shuffleUnknown()
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, drop_last=True)
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True)
 
         for i_batch, batch in enumerate(dataloader):
             # Forward
@@ -243,7 +243,7 @@ def evaluation(model):
             _, predicted = torch.max(outputs.data, 1)
             total += batchsize
             correct += (predicted == batch['label']).sum().item()
-            print('Batch[{}/{}], Accuracy: {:.9f}'.format(i_batch+1, num_batches, 100*total/correct))
+            print('Batch[{}/{}]'.format(i_batch+1, num_batches))
 
     print('Accuracy of the network : %d %%' % (100 * correct / total))
     with open('../Data/results/monitoring/accuracies.txt', 'a') as f:
@@ -254,7 +254,9 @@ def evaluation(model):
 """
 MAIN
 """
-
+model = model = Network(BasicBlock).to(device)
+model.load_state_dict(torch.load('../Data/results/model_save/end_to_end.pkl'))
+evaluation(model)
 # clear previous results
 #open('../Data/results/monitoring/accuracies.txt', 'w').close()
 #open('../Data/results/monitoring/loss_step_1.txt', 'w').close()
@@ -262,11 +264,10 @@ MAIN
 #open('../Data/results/monitoring/loss_step_3.txt', 'w').close()
 
 #training phase
-end_to_end_training()
+#end_to_end_training()
 #data_list, unknown, root_dir = training_first_step()
 #training_second_step(data_list, unknown, root_dir)
 #training_third_step(data_list, unknown, root_dir)
-
 
 
 # pylint: enable=E1101, W0612
