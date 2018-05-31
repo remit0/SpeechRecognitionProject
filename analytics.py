@@ -4,7 +4,7 @@ def lossDisplay(filename):
     with open(filename,'r') as lossData:
         losses = [float(x.strip()) for x in lossData.readlines()]
     print(len(losses))
-    losses = losses[len(losses)-1200:]
+    losses = losses[len(losses)-60:]
     steps = [i for i in range(len(losses))]
     plt.plot(steps, losses)
     plt.xlabel("batch number")

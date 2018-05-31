@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+from torch.nn.utils import clip_grad_norm_
 
 # Home made 
 from dataset import SRCdataset
@@ -193,7 +194,7 @@ def end_to_end_training():
 
     # Dataset
     dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
-    dataset.reduceDataset(10)
+    #dataset.reduceDataset(10)
     num_batches = dataset.__len__() // batch_size
 
     for epoch in range(num_epochs):
@@ -208,6 +209,7 @@ def end_to_end_training():
             # Backward and optimize
             model.zero_grad()
             loss.backward()
+            clip_grad_norm_(model.parameters(), 2)
             optimizer.step()
 
             # Display
@@ -233,7 +235,7 @@ def evaluation(model):
 
     # Validation set
     dataset = SRCdataset('../Data/train/validation_list.txt', '../Data/train/audio')
-    dataset.reduceDataset(200)
+    dataset.reduceDataset(10)
     num_batches = dataset.__len__() // 2
     dataloader = DataLoader(dataset, batch_size = batchsize, drop_last = True)
 
@@ -250,6 +252,9 @@ def evaluation(model):
         f.write(str(100 * correct / total)+'\n')
     model.train()
 
+#model = Network(BasicBlock).to(device)
+#model.load_state_dict(torch.load('../Data/results/model_save/end_to_end.pkl'))
+#evaluation(model)
 
 """
 MAIN
@@ -262,7 +267,7 @@ MAIN
 #open('../Data/results/monitoring/loss_step_3.txt', 'w').close()
 
 #training phase
-end_to_end_training()
+#end_to_end_training()
 #data_list, unknown, root_dir = training_first_step()
 #training_second_step(data_list, unknown, root_dir)
 #training_third_step(data_list, unknown, root_dir)
