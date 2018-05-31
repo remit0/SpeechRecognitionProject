@@ -28,7 +28,7 @@ torch.set_default_tensor_type('torch.DoubleTensor')
 
 # Hyperparams
 num_epochs = 1
-batch_size = 4
+batch_size = 2
 learning_rate = 0.003
 
 """
@@ -193,7 +193,7 @@ def end_to_end_training():
 
     # Dataset
     dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
-    dataset.reduceDataset(400)
+    dataset.reduceDataset(10)
     num_batches = dataset.__len__() // batch_size
 
     for epoch in range(num_epochs):
@@ -212,7 +212,7 @@ def end_to_end_training():
 
             # Display
             print ('Epoch [{}/{}], Batch[{}/{}], Loss: {:.9f}'
-                .format(epoch+1, num_epochs, i_batch+1, num_batches, loss.item()))
+                .format(epoch+1, num_epochs, i_batch+1, num_batches, loss.item()), batch['label'])
             
             # Save loss
             with open('../Data/results/monitoring/Xperience.txt', 'a') as myfile:
@@ -254,9 +254,7 @@ def evaluation(model):
 """
 MAIN
 """
-model = model = Network(BasicBlock).to(device)
-model.load_state_dict(torch.load('../Data/results/model_save/end_to_end.pkl'))
-evaluation(model)
+
 # clear previous results
 #open('../Data/results/monitoring/accuracies.txt', 'w').close()
 #open('../Data/results/monitoring/loss_step_1.txt', 'w').close()
@@ -264,7 +262,7 @@ evaluation(model)
 #open('../Data/results/monitoring/loss_step_3.txt', 'w').close()
 
 #training phase
-#end_to_end_training()
+end_to_end_training()
 #data_list, unknown, root_dir = training_first_step()
 #training_second_step(data_list, unknown, root_dir)
 #training_third_step(data_list, unknown, root_dir)

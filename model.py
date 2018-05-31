@@ -72,12 +72,6 @@ class Network(nn.Module):
 
         return nn.Sequential(*layers)
     
-    def average(self, x):
-        avg = torch.zeros(x.size(0), x.size(2))
-        for i in range(x.size(0)):
-            for j in range(x.size(2)):
-                avg[i, j] = torch.sum(x[i, :, j]) / x.size(1)
-        return avg
 
     def forward(self, x):
         x = self.conv1(x)
@@ -103,6 +97,6 @@ class Network(nn.Module):
         x = self.fc2(x)                 #batchSize*seqLen x 12
         x = x.view(bsize, -1, 12)  #batchSize x seqLen x 12
         x = self.softmax(x)             #batchSize x seqLen x 12
-        x = self.average(x)             #batchSize x 12
-
+        x = torch.mean(x, 1)             #batchSize x 12
+ 
         return x
