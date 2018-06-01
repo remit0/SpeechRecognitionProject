@@ -194,7 +194,7 @@ def end_to_end_training():
 
     # Dataset
     dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
-    #dataset.reduceDataset(10)
+    dataset.reduceDataset(10)
     num_batches = dataset.__len__() // batch_size
 
     for epoch in range(num_epochs):
@@ -209,11 +209,11 @@ def end_to_end_training():
             # Backward and optimize
             model.zero_grad()
             loss.backward()
-            clip_grad_norm_(model.parameters(), 2)
+            clip_grad_norm_(model.parameters(), 0.5)
             optimizer.step()
 
             # Display
-            print ('Epoch [{}/{}], Batch[{}/{}], Loss: {:.9f}'
+            print ('Epoch [{}/{}], Step[{}/{}], Loss: {:.9f}'
                 .format(epoch+1, num_epochs, i_batch+1, num_batches, loss.item()), batch['label'])
             
             # Save loss
@@ -267,7 +267,7 @@ MAIN
 #open('../Data/results/monitoring/loss_step_3.txt', 'w').close()
 
 #training phase
-#end_to_end_training()
+end_to_end_training()
 #data_list, unknown, root_dir = training_first_step()
 #training_second_step(data_list, unknown, root_dir)
 #training_third_step(data_list, unknown, root_dir)

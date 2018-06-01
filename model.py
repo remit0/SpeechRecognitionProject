@@ -91,12 +91,13 @@ class Network(nn.Module):
         x = self.fc1(x)
         x = x.view(bsize, -1, 512) #batchSize x seqLen x features
         x, _ = self.gru(x)              #batchSize x seqLen x num_directions * hidden_size
-
-        x = x.contiguous()
-        x = x.view(x.size(0)*x.size(1), -1) #batchSize*seqLen x 2*hidden_size
-        x = self.fc2(x)                 #batchSize*seqLen x 12
-        x = x.view(bsize, -1, 12)  #batchSize x seqLen x 12
-        x = self.softmax(x)             #batchSize x seqLen x 12
-        x = torch.mean(x, 1)             #batchSize x 12
+        
+        x = self.fc2(x[:, -1, :])
+        #x = x.contiguous()
+        #x = x.view(x.size(0)*x.size(1), -1) #batchSize*seqLen x 2*hidden_size
+        #x = self.fc2(x)                 #batchSize*seqLen x 12
+        #x = x.view(bsize, -1, 12)  #batchSize x seqLen x 12
+        #x = self.softmax(x)             #batchSize x seqLen x 12
+        #x = torch.mean(x, 1)             #batchSize x 12
  
         return x
