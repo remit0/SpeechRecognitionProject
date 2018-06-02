@@ -43,8 +43,8 @@ def silence_generator():
         #copy 1s after start index
         new_sample = sample[start_index:start_index+16000]
         #randomly lower the intensity
-        decrease = uniform(0, 0.6)
-        new_sample = decrease*new_sample
+        #decrease = uniform(0, 0.6)         # ?
+        #new_sample = decrease*new_sample
         new_sample = np.rint(new_sample).astype('int16')
         #write file
         scwav.write('../Data/train/audio/silence/silent'+str(i)+'.wav', 16000, new_sample)

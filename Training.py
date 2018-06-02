@@ -21,6 +21,9 @@ save results at each step // validation + test set
 litterature review + what to do + plan mFCC combine (noisy conditions) spectogram
 validation set : early stopping accuracy decrease? fix number of epochs 20
 loss and accuracy curves 
+
+just resnet tests
+check unknown repartition
 """
 
 # Device configuration
@@ -207,7 +210,8 @@ def end_to_end_training():
             loss = criterion(outputs, batch['label'])
 
             # Backward and optimize
-            model.zero_grad()
+            #model.zero_grad()
+            optimizer.zero_grad()
             loss.backward()
             clip_grad_norm_(model.parameters(), 0.5)
             optimizer.step()
