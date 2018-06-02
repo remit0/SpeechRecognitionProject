@@ -31,8 +31,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.set_default_tensor_type('torch.DoubleTensor')
 
 # Hyperparams
-num_epochs = 1
-batch_size = 2
+num_epochs = 5
+batch_size = 4
 learning_rate = 0.003
 
 """
@@ -40,6 +40,7 @@ THREE STEP TRAINING
 """
 
 def training_first_step():
+    open('../Data/results/monitoring/loss_step_1.txt', 'w').close()
     model = Network(BasicBlock).to(device)
 
     # Fine tuning - ResNet
@@ -55,25 +56,25 @@ def training_first_step():
 
     # Dataset
     dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
-    dataset.reduceDataset(20)
+    dataset.reduceDataset(100)
     num_batches = dataset.__len__() // batch_size
 
     for epoch in range(num_epochs):
         dataset.shuffleUnknown()
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, drop_last=True)
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True)
 
         for i_batch, batch in enumerate(dataloader):
             # Forward
+            optimizer.zero_grad()
             outputs = model(batch['audio'].unsqueeze(1).to(device))
-            loss = criterion(outputs, batch['label'])
+            loss = criterion(outputs, batch['label'].to(device))
 
             # Backward and optimize
-            model.zero_grad()
             loss.backward()
             optimizer.step()
             
             # Display
-            print ('Epoch [{}/{}], Batch[{}/{}], Loss: {:.4f}'
+            print ('Epoch [{}/{}], Step[{}/{}], Loss: {:.9f}'
                 .format(epoch+1, num_epochs, i_batch+1, num_batches, loss.item()))
             
             # Save loss
@@ -90,6 +91,7 @@ def training_first_step():
 
 
 def training_second_step(data_list, unknown, root_dir):
+    open('../Data/results/monitoring/loss_step_2.txt', 'w').close()
     model = Network(BasicBlock).to(device)
     model.load_state_dict(torch.load('../Data/results/model_save/model_save_ResNet_'+str(num_epochs)+'.pkl'))
 
@@ -117,16 +119,16 @@ def training_second_step(data_list, unknown, root_dir):
 
         for i_batch, batch in enumerate(dataloader):
             # Forward
+            model.zero_grad()
             outputs = model(batch['audio'].unsqueeze(1).to(device))
-            loss = criterion(outputs, batch['label'])
+            loss = criterion(outputs, batch['label'].to(device))
 
             # Backward and optimize
-            model.zero_grad()
             loss.backward()
             optimizer.step()
 
             # Display
-            print ('Epoch [{}/{}], Batch[{}/{}], Loss: {:.4f}'
+            print ('Epoch [{}/{}], Step[{}/{}], Loss: {:.9f}'
                 .format(epoch+1, num_epochs, i_batch+1, num_batches, loss.item()))
 
             # Save loss
@@ -143,6 +145,7 @@ def training_second_step(data_list, unknown, root_dir):
 
 
 def training_third_step(data_list, unknown, root_dir):
+    open('../Data/results/monitoring/loss_step_3.txt', 'w').close()
     model = Network(BasicBlock).to(device)
     model.load_state_dict(torch.load('../Data/results/model_save/model_save_BGRU_'+str(num_epochs)+'.pkl'))
 
@@ -163,16 +166,16 @@ def training_third_step(data_list, unknown, root_dir):
 
         for i_batch, batch in enumerate(dataloader):
             # Forward
+            model.zero_grad()
             outputs = model(batch['audio'].unsqueeze(1).to(device))
-            loss = criterion(outputs, batch['label'])
+            loss = criterion(outputs, batch['label'].to(device))
 
             # Backward and optimize
-            model.zero_grad()
             loss.backward()
             optimizer.step()
 
             # Display
-            print ('Epoch [{}/{}], Batch[{}/{}], Loss: {:.4f}'
+            print ('Epoch [{}/{}], Step[{}/{}], Loss: {:.9f}'
                 .format(epoch+1, num_epochs, i_batch+1, num_batches, loss.item()))
             
             # Save loss
@@ -189,6 +192,7 @@ def training_third_step(data_list, unknown, root_dir):
 ONE STEP TRAINING
 """
 def end_to_end_training():
+    open('../Data/results/monitoring/Xperience.txt', 'w').close()
     model = Network(BasicBlock).to(device)
 
     # Loss and optimizer ###
@@ -206,12 +210,11 @@ def end_to_end_training():
 
         for i_batch, batch in enumerate(dataloader):
             # Forward
+            model.zero_grad()
             outputs = model(batch['audio'].unsqueeze(1).to(device))
-            loss = criterion(outputs, batch['label'])
+            loss = criterion(outputs, batch['label'].to(device))
 
             # Backward and optimize
-            #model.zero_grad()
-            optimizer.zero_grad()
             loss.backward()
             clip_grad_norm_(model.parameters(), 0.5)
             optimizer.step()
@@ -265,14 +268,11 @@ MAIN
 """
 
 # clear previous results
-#open('../Data/results/monitoring/accuracies.txt', 'w').close()
-#open('../Data/results/monitoring/loss_step_1.txt', 'w').close()
-#open('../Data/results/monitoring/loss_step_2.txt', 'w').close()
-#open('../Data/results/monitoring/loss_step_3.txt', 'w').close()
+open('../Data/results/monitoring/accuracies.txt', 'w').close()
 
 #training phase
-end_to_end_training()
-#data_list, unknown, root_dir = training_first_step()
+#end_to_end_training()
+data_list, unknown, root_dir = training_first_step()
 #training_second_step(data_list, unknown, root_dir)
 #training_third_step(data_list, unknown, root_dir)
 

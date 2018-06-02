@@ -57,8 +57,9 @@ def append_silence(filename):
         for i in range(1801, 2050, 1):
             myfile.write('silence/'+noise_list[i]+'\n')
 
-#append_silence('../Data/train/validation_list.txt')
+a#ppend_silence('../Data/train/validation_list.txt')
 #append_silence('../Data/train/test_file.txt')
+
 def clear_silence(filename):
     #clearing silence in training_list.txt
     f = open(filename,'r')
