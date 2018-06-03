@@ -23,23 +23,23 @@ validation set : early stopping accuracy decrease? fix number of epochs 20
 loss and accuracy curves 
 
 just resnet tests
-check unknown repartition
 """
 
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+torch.backends.cudnn.enabled = False 
 torch.set_default_tensor_type('torch.DoubleTensor')
 
 # Hyperparams
-num_epochs = 5
-batch_size = 4
-learning_rate = 0.003
+NUM_EPOCHS = 5
+BATCH_SIZE = 4
+LEARNING_RATE = 0.003
 
 """
 THREE STEP TRAINING
 """
 
-def training_first_step():
+def training_first_step(dataset, validationset):
     open('../Data/results/monitoring/loss_step_1.txt', 'w').close()
     model = Network(BasicBlock).to(device)
 
@@ -52,16 +52,12 @@ def training_first_step():
 
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate)
+    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE)
 
-    # Dataset
-    dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
-    dataset.reduceDataset(100)
-    num_batches = dataset.__len__() // batch_size
+    num_batches = dataset.__len__() // BATCH_SIZE
 
-    for epoch in range(num_epochs):
-        dataset.shuffleUnknown()
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+    for epoch in range(NUM_EPOCHS):
+        dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
         for i_batch, batch in enumerate(dataloader):
             # Forward
@@ -75,25 +71,27 @@ def training_first_step():
             
             # Display
             print ('Epoch [{}/{}], Step[{}/{}], Loss: {:.9f}'
-                .format(epoch+1, num_epochs, i_batch+1, num_batches, loss.item()))
+                .format(epoch+1, NUM_EPOCHS, i_batch+1, num_batches, loss.item()))
             
             # Save loss
             with open('../Data/results/monitoring/loss_step_1.txt', 'a') as myfile:
                 myfile.write(str(loss.item())+'\n')
-            
-        # Save model, accuracy at each epoch
-        torch.save(model.state_dict(),'../Data/results/model_save/model_save_ResNet_'+str(epoch+1)+'.pkl')
-        evaluation(model)
     
-    data_list, unknown, root_dir = dataset.export()
-    return data_list, unknown, root_dir
+        # Save model, accuracy at each epoch
+        evaluation(model, validationset, '../Data/results/monitoring/accuracies.txt', 4)
+        evaluation(model, dataset, '../Data/results/monitoring/accuracies2.txt', 4)
+
+        dataset.shuffleUnknown()
+        dataset.generateSilenceClass()
+
+        torch.save(model.state_dict(),'../Data/results/model_save/model_save_ResNet_'+str(epoch+1)+'.ckpt')
 
 
 
-def training_second_step(data_list, unknown, root_dir):
+def training_second_step(dataset, validationset, modelsave):
     open('../Data/results/monitoring/loss_step_2.txt', 'w').close()
     model = Network(BasicBlock).to(device)
-    model.load_state_dict(torch.load('../Data/results/model_save/model_save_ResNet_'+str(num_epochs)+'.pkl'))
+    model.load_state_dict(torch.load(modelsave))
 
     # Fine tuning - gru & fc2
     for params in model.parameters():
@@ -106,16 +104,12 @@ def training_second_step(data_list, unknown, root_dir):
 
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate)
+    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE)
 
-    # Dataset
-    dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
-    dataset.copy(data_list, unknown, root_dir)
-    num_batches = dataset.__len__() // batch_size
+    num_batches = dataset.__len__() // BATCH_SIZE
 
-    for epoch in range(num_epochs):
-        dataset.shuffleUnknown()
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, drop_last=True)
+    for epoch in range(NUM_EPOCHS):
+        dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False, drop_last=True)
 
         for i_batch, batch in enumerate(dataloader):
             # Forward
@@ -129,40 +123,40 @@ def training_second_step(data_list, unknown, root_dir):
 
             # Display
             print ('Epoch [{}/{}], Step[{}/{}], Loss: {:.9f}'
-                .format(epoch+1, num_epochs, i_batch+1, num_batches, loss.item()))
+                .format(epoch+1, NUM_EPOCHS, i_batch+1, num_batches, loss.item()))
 
             # Save loss
             with open('../Data/results/monitoring/loss_step_2.txt', 'a') as myfile:
                 myfile.write(str(loss.item())+'\n')
         
         # Save model, accuracy at each epoch
-        torch.save(model.state_dict(),'../Data/results/model_save/model_save_BGRU_'+str(epoch+1)+'.pkl')
-        evaluation(model)
+        reduction = dataset.__len__() // 12
 
-    data_list, unknown, root_dir = dataset.export()
-    return data_list, unknown, root_dir
+        evaluation(model, validationset, '../Data/results/monitoring/accuracies.txt', 4)
+        evaluation(model, dataset, '../Data/results/monitoring/accuracies2.txt', 4)
+
+        dataset.shuffleUnknown()
+        dataset.generateSilenceClass()
+
+        torch.save(model.state_dict(),'../Data/results/model_save/model_save_BGRU_'+str(epoch+1)+'.ckpt')
 
 
 
-def training_third_step(data_list, unknown, root_dir):
+def training_third_step(dataset, validationset, modelsave):
     open('../Data/results/monitoring/loss_step_3.txt', 'w').close()
     model = Network(BasicBlock).to(device)
-    model.load_state_dict(torch.load('../Data/results/model_save/model_save_BGRU_'+str(num_epochs)+'.pkl'))
+    model.load_state_dict(torch.load(modelsave))
 
     # Loss and optimizer
     for params in model.parameters():
         params.requires_grad = True
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate*0.1)
+    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE*0.1)
 
-    # Dataset
-    dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
-    dataset.copy(data_list, unknown, root_dir)
-    num_batches = dataset.__len__() // batch_size
+    num_batches = dataset.__len__() // BATCH_SIZE
 
-    for epoch in range(num_epochs):
-        dataset.shuffleUnknown()
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, drop_last=True)
+    for epoch in range(NUM_EPOCHS):
+        dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False, drop_last=True)
 
         for i_batch, batch in enumerate(dataloader):
             # Forward
@@ -176,74 +170,30 @@ def training_third_step(data_list, unknown, root_dir):
 
             # Display
             print ('Epoch [{}/{}], Step[{}/{}], Loss: {:.9f}'
-                .format(epoch+1, num_epochs, i_batch+1, num_batches, loss.item()))
+                .format(epoch+1, NUM_EPOCHS, i_batch+1, num_batches, loss.item()))
             
             # Save loss
             with open('../Data/results/monitoring/loss_step_3.txt', 'a') as myfile:
                 myfile.write(str(loss.item())+'\n')
-
+        
         # Save model, accuracy at each epoch
-        torch.save(model.state_dict(),'../Data/results/model_save/model_save_final_'+str(epoch+1)+'.pkl')
-        evaluation(model)
+        evaluation(model, validationset, '../Data/results/monitoring/accuracies.txt', 4)
+        evaluation(model, dataset, '../Data/results/monitoring/accuracies2.txt', 4)
 
-
-
-"""
-ONE STEP TRAINING
-"""
-def end_to_end_training():
-    open('../Data/results/monitoring/Xperience.txt', 'w').close()
-    model = Network(BasicBlock).to(device)
-
-    # Loss and optimizer ###
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-
-    # Dataset
-    dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
-    dataset.reduceDataset(10)
-    num_batches = dataset.__len__() // batch_size
-
-    for epoch in range(num_epochs):
         dataset.shuffleUnknown()
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+        dataset.generateSilenceClass()
 
-        for i_batch, batch in enumerate(dataloader):
-            # Forward
-            model.zero_grad()
-            outputs = model(batch['audio'].unsqueeze(1).to(device))
-            loss = criterion(outputs, batch['label'].to(device))
-
-            # Backward and optimize
-            loss.backward()
-            clip_grad_norm_(model.parameters(), 0.5)
-            optimizer.step()
-
-            # Display
-            print ('Epoch [{}/{}], Step[{}/{}], Loss: {:.9f}'
-                .format(epoch+1, num_epochs, i_batch+1, num_batches, loss.item()), batch['label'])
-            
-            # Save loss
-            with open('../Data/results/monitoring/Xperience.txt', 'a') as myfile:
-                myfile.write(str(loss.item())+'\n')
-
-        # Save model, accuracy at each epoch
-        torch.save(model.state_dict(),'../Data/results/model_save/end_to_end.pkl')
-        evaluation(model)
+        torch.save(model.state_dict(),'../Data/results/model_save/model_save_final_'+str(epoch+1)+'.ckpt')
 
 
 """
 ACCURACY TEST
 """
-def evaluation(model):
+def evaluation(model, dataset, filename, batchsize=2):
     total, correct = 0, 0
-    batchsize = 2
-    model.eval()
+    model = model.eval()
 
-    # Validation set
-    dataset = SRCdataset('../Data/train/validation_list.txt', '../Data/train/audio')
-    dataset.reduceDataset(10)
-    num_batches = dataset.__len__() // 2
+    num_batches = dataset.__len__() // batchsize
     dataloader = DataLoader(dataset, batch_size = batchsize, drop_last = True)
 
     with torch.no_grad():
@@ -251,17 +201,13 @@ def evaluation(model):
             outputs = model(batch['audio'].unsqueeze(1).to(device))
             _, predicted = torch.max(outputs.data, 1)
             total += batchsize
-            correct += (predicted == batch['label']).sum().item()
+            correct += (predicted == batch['label'].to(device)).sum().item()
             print('Batch[{}/{}]'.format(i_batch+1, num_batches))
 
     print('Accuracy of the network : %d %%' % (100 * correct / total))
-    with open('../Data/results/monitoring/accuracies.txt', 'a') as f:
+    with open(filename, 'a') as f:
         f.write(str(100 * correct / total)+'\n')
-    model.train()
-
-#model = Network(BasicBlock).to(device)
-#model.load_state_dict(torch.load('../Data/results/model_save/end_to_end.pkl'))
-#evaluation(model)
+    model = model.train()
 
 """
 MAIN
@@ -269,12 +215,19 @@ MAIN
 
 # clear previous results
 open('../Data/results/monitoring/accuracies.txt', 'w').close()
+open('../Data/results/monitoring/accuracies2.txt', 'w').close()
+
+# dataset
+dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
+dataset.reduceDataset(12)
+
+validationset = SRCdataset('../Data/train/validation_list.txt', '../Data/train/audio')
+validationset.reduceDataset(12)
 
 #training phase
-#end_to_end_training()
-data_list, unknown, root_dir = training_first_step()
-#training_second_step(data_list, unknown, root_dir)
-#training_third_step(data_list, unknown, root_dir)
+training_first_step(dataset, validationset)
+#training_second_step(dataset, validationset, '../Data/results/model_save/model_save_ResNet_'+str(NUM_EPOCHS)+'.ckpt')
+#training_third_step(dataset, validatoinset, '../Data/results/model_save/model_save_BGRU_'+str(NUM_EPOCHS)+'.ckpt')
 
 
 # pylint: enable=E1101, W0612

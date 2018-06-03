@@ -89,7 +89,7 @@ class Network(nn.Module):
         x = x.view(x.size(0)*x.size(1), -1) #batchSize*seqLen x features
 
         x = self.fc1(x)
-        x = x.view(bsize, -1, 512) #batchSize x seqLen x features
+        x = x.view(bsize, -1, 512)      #batchSize x seqLen x features
         x, _ = self.gru(x)              #batchSize x seqLen x num_directions * hidden_size
         
         x = self.fc2(x[:, -1, :])

@@ -3,9 +3,15 @@ import numpy as np
 from torch.utils.data import Dataset
 from random import randint
 import scipy.io.wavfile as scwav
+from math import floor
+from os import listdir
+from os.path import isfile, join
+from data_setup import clear_silence
 # pylint: disable=E1101, W0612
 
 labels = ['yes','no','up','down','left','right','on','off','stop','go','unknown','silence']
+unknown_words = ['bed', 'bird', 'cat', 'dog', 'eight', 'five', 'four', 'happy', 'house', 'marvin', 'nine', 'one', 'seven', 'sheila',
+                'six', 'three', 'tree', 'two', 'wow', 'zero']
 seq_length = 16000
 
 class SRCdataset(Dataset):
@@ -13,6 +19,8 @@ class SRCdataset(Dataset):
     def __init__(self, txt_file, root_dir):
 
         self.root_dir = root_dir
+        self.txt_file = txt_file
+
         # Build data set list
         with open(txt_file, 'r') as datalist:
             # For testing and validation we use everthing
@@ -21,7 +29,7 @@ class SRCdataset(Dataset):
                 self.unknown = []
             # For training we have to balance the dataset
             else:
-                repartition = np.zeros((12), dtype = np.int16)
+                clear_silence(txt_file)
                 data = [x.strip() for x in datalist.readlines()]
                 data_list, unknown_list = [], []
                 # Balancing the unknown set
@@ -29,20 +37,19 @@ class SRCdataset(Dataset):
                     xlabel = x.split('/')
                     xlabel = xlabel[0]
                     if xlabel in labels:
-                        repartition[labels.index(xlabel)] += 1
                         data_list.append(x)
                     else:
                         unknown_list.append(x)
 
-                for i in range(repartition[0]):
+                for i in range(len(data_list)//10):
                     sample_index = randint(0, len(unknown_list)-1)
                     data_list.append(unknown_list[sample_index])
-                repartition[10] = repartition[0]
-                print('Class distribution :  ', [(labels[i], repartition[i]) for i in range(12)])
 
                 self.data_list = data_list
                 self.unknown = unknown_list
-                
+                self.generateSilenceClass()
+        self.display()
+
     def shuffleUnknown(self):
         # Remove previous unknown samples
         new_data_list = []
@@ -61,7 +68,16 @@ class SRCdataset(Dataset):
             new_data_list.append(self.unknown[sample_index])
         
         self.data_list = new_data_list
-    
+
+    def unknownStats(self):
+        repartition = np.zeros((len(unknown_words)),  dtype = np.int16)
+        for x in self.data_list:
+            xlabel = x.split('/')
+            xlabel = xlabel[0]
+            if xlabel in unknown_words:
+                repartition[unknown_words.index(xlabel)] += 1
+        print('Unknown distribution :  ', [(unknown_words[i], floor(100*repartition[i]/np.sum(repartition))) for i in range(len(repartition))])
+
     def reduceDataset(self, label_size):
         repartition = np.zeros((12), dtype = np.int16)
         new_data_list = []
@@ -89,15 +105,42 @@ class SRCdataset(Dataset):
                 repartition[labels.index(xlabel)] += 1
             else:
                 repartition[10] += 1
-        print(repartition)
+        print('class distribution :  ', [(labels[i], repartition[i]) for i in range(12)])
     
-    def export(self):
-        return self.data_list, self.unknown, self.root_dir
+    def generateSilenceClass(self):
+        #clearing silence
+        f = open(self.txt_file,'r')
+        lines = f.readlines()
+        f.close()
+        f = open(self.txt_file,'w')
+        for line in lines:
+            if 'silence' not in line:
+                f.write(line)
+        f.close()
 
-    def copy(self, data_list, unknown, root_dir):
-        self.data_list = data_list
-        self.unknown = unknown
-        self.root_dir = root_dir
+        self.data_list = [x for x in self.data_list if 'silence' not in x]
+        nsamples = len(self.data_list)//11
+        path = self.root_dir +'/_background_noise_'
+        noise_list = [f for f in listdir(path) if isfile(join(path, f))]
+        noise_list.remove('README.md')
+        
+        for i in range(nsamples):
+            #select random noise effect
+            selected = noise_list[randint(0, len(noise_list)-1)]
+            _, sample = scwav.read('../Data/train/audio/_background_noise_/'+selected)
+            #select random start index over 60s
+            start_index = randint(0, len(sample)-16000)
+            #copy 1s after start index
+            new_sample = sample[start_index:start_index+16000]
+            new_sample = np.rint(new_sample).astype('int16')
+            #write file
+            scwav.write('../Data/train/audio/silence/silent'+str(i)+'.wav', 16000, new_sample)
+        
+        with open(self.txt_file, 'a') as myfile:
+            noise_list = [f for f in listdir('../Data/train/audio/silence') if isfile(join('../Data/train/audio/silence', f))]
+            for i in range(nsamples):
+                myfile.write('silence/'+noise_list[i]+'\n')
+                self.data_list.append('silence/'+noise_list[i])
 
     def __len__(self):
         return len(self.data_list)
