@@ -30,7 +30,7 @@ def make_training_list():
 
 def silence_generator():
     path = '../Data/train/audio/_background_noise_'
-    nsamples = 2000
+    nsamples = 270
     noise_list = [f for f in listdir(path) if isfile(join(path, f))]
     noise_list.remove('README.md')
     
@@ -71,7 +71,7 @@ def clear_silence(filename):
             f.write(line)
     f.close()
 
-#clear_silence('../Data/train/training_list.txt')
+#clear_silence('../Data/train/validation_list.txt')
 #clear_silence('../Data/train/test_file.txt')
 
 

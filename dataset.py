@@ -127,17 +127,17 @@ class SRCdataset(Dataset):
         for i in range(nsamples):
             #select random noise effect
             selected = noise_list[randint(0, len(noise_list)-1)]
-            _, sample = scwav.read('../Data/train/audio/_background_noise_/'+selected)
+            _, sample = scwav.read(self.root_dir+'/_background_noise_/'+selected)
             #select random start index over 60s
             start_index = randint(0, len(sample)-16000)
             #copy 1s after start index
             new_sample = sample[start_index:start_index+16000]
             new_sample = np.rint(new_sample).astype('int16')
             #write file
-            scwav.write('../Data/train/audio/silence/silent'+str(i)+'.wav', 16000, new_sample)
+            scwav.write(self.root_dir+'/silence/silent'+str(i)+'.wav', 16000, new_sample)
         
         with open(self.txt_file, 'a') as myfile:
-            noise_list = [f for f in listdir('../Data/train/audio/silence') if isfile(join('../Data/train/audio/silence', f))]
+            noise_list = [f for f in listdir(self.root_dir+'/silence') if isfile(join(self.root_dir+'/silence', f))]
             for i in range(nsamples):
                 myfile.write('silence/'+noise_list[i]+'\n')
                 self.data_list.append('silence/'+noise_list[i])
