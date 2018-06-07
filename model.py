@@ -31,7 +31,7 @@ class BasicBlock(nn.Module):
 
 class Network(nn.Module):
 
-    def __init__(self, block):
+    def __init__(self, block, num_features = 512, num_layers = 2):
         self.inplanes = 64
         super(Network, self).__init__()
         self.conv1 = nn.Conv1d(1, 64, kernel_size=80, stride=4, padding=38, bias=False) 
@@ -44,8 +44,8 @@ class Network(nn.Module):
         self.layer4 = self._make_layer(block, 512, 2, stride=2)
 
         self.fc1 = nn.Linear(512, 512)
-        self.gru = nn.GRU(512, 512, num_layers = 2, bidirectional = True, batch_first = True) #hiddensize(512)
-        self.fc2 = nn.Linear(512*2, 12) #hiddensize*numdirection
+        self.gru = nn.GRU(512, num_features, num_layers = num_layers, bidirectional = True, batch_first = True)
+        self.fc2 = nn.Linear(num_features*2, 12)
         self.softmax = nn.Softmax(dim=2)
 
         for m in self.modules():

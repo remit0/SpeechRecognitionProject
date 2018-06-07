@@ -29,9 +29,11 @@ torch.backends.cudnn.enabled = False
 torch.set_default_tensor_type('torch.DoubleTensor')
 
 # Hyperparams
-NUM_EPOCHS = 5
-BATCH_SIZE = 4
+NUM_EPOCHS = 2
+BATCH_SIZE = 2
 LEARNING_RATE = 0.003
+NUM_FEATURES = 512
+NUM_LAYERS = 2
 
 """
 THREE STEP TRAINING
@@ -39,7 +41,7 @@ THREE STEP TRAINING
 
 def training_first_step(dataset, validationset):
     open('../Data/results/monitoring/loss_step_1.txt', 'w').close()
-    model = Network(BasicBlock).to(device)
+    model = Network(BasicBlock, NUM_FEATURES, NUM_LAYERS).to(device)
 
     # Fine tuning - ResNet
     for name, param in model.named_parameters():
@@ -76,8 +78,8 @@ def training_first_step(dataset, validationset):
                 myfile.write(str(loss.item())+'\n')
     
         # Save model, accuracy at each epoch
-        evaluation(model, validationset, '../Data/results/monitoring/accuracies.txt', 4)
-        evaluation(model, dataset, '../Data/results/monitoring/accuracies2.txt', 4)
+        evaluation(model, validationset, '../Data/results/monitoring/accuracies_val.txt', 4)
+        evaluation(model, dataset, '../Data/results/monitoring/accuracies_train.txt', 4)
 
         dataset.shuffleUnknown()
         dataset.generateSilenceClass()
@@ -88,7 +90,7 @@ def training_first_step(dataset, validationset):
 
 def training_second_step(dataset, validationset, modelsave):
     open('../Data/results/monitoring/loss_step_2.txt', 'w').close()
-    model = Network(BasicBlock).to(device)
+    model = Network(BasicBlock, NUM_FEATURES, NUM_LAYERS).to(device)
     model.load_state_dict(torch.load(modelsave))
 
     # Fine tuning - gru & fc2
@@ -111,7 +113,7 @@ def training_second_step(dataset, validationset, modelsave):
 
         for i_batch, batch in enumerate(dataloader):
             # Forward
-            model.zero_grad()
+            optimizer.zero_grad()
             outputs = model(batch['audio'].unsqueeze(1).to(device))
             loss = criterion(outputs, batch['label'].to(device))
 
@@ -128,10 +130,8 @@ def training_second_step(dataset, validationset, modelsave):
                 myfile.write(str(loss.item())+'\n')
         
         # Save model, accuracy at each epoch
-        reduction = dataset.__len__() // 12
-
-        evaluation(model, validationset, '../Data/results/monitoring/accuracies.txt', 4)
-        evaluation(model, dataset, '../Data/results/monitoring/accuracies2.txt', 4)
+        evaluation(model, validationset, '../Data/results/monitoring/accuracies_val.txt', 4)
+        evaluation(model, dataset, '../Data/results/monitoring/accuracies_train.txt', 4)
 
         dataset.shuffleUnknown()
         dataset.generateSilenceClass()
@@ -142,7 +142,7 @@ def training_second_step(dataset, validationset, modelsave):
 
 def training_third_step(dataset, validationset, modelsave):
     open('../Data/results/monitoring/loss_step_3.txt', 'w').close()
-    model = Network(BasicBlock).to(device)
+    model = Network(BasicBlock, NUM_FEATURES, NUM_LAYERS).to(device)
     model.load_state_dict(torch.load(modelsave))
 
     # Loss and optimizer
@@ -158,7 +158,7 @@ def training_third_step(dataset, validationset, modelsave):
 
         for i_batch, batch in enumerate(dataloader):
             # Forward
-            model.zero_grad()
+            optimizer.zero_grad()
             outputs = model(batch['audio'].unsqueeze(1).to(device))
             loss = criterion(outputs, batch['label'].to(device))
 
@@ -175,8 +175,8 @@ def training_third_step(dataset, validationset, modelsave):
                 myfile.write(str(loss.item())+'\n')
         
         # Save model, accuracy at each epoch
-        evaluation(model, validationset, '../Data/results/monitoring/accuracies.txt', 4)
-        evaluation(model, dataset, '../Data/results/monitoring/accuracies2.txt', 4)
+        evaluation(model, validationset, '../Data/results/monitoring/accuracies_val.txt', 4)
+        evaluation(model, dataset, '../Data/results/monitoring/accuracies_test.txt', 4)
 
         dataset.shuffleUnknown()
         dataset.generateSilenceClass()
@@ -185,8 +185,9 @@ def training_third_step(dataset, validationset, modelsave):
 
 
 """
-ACCURACY TEST
+ACCURACY
 """
+
 def evaluation(model, dataset, filename, batchsize=2):
     total, correct = 0, 0
     model = model.eval()
@@ -212,20 +213,17 @@ MAIN
 """
 
 # clear previous results
-open('../Data/results/monitoring/accuracies.txt', 'w').close()
-open('../Data/results/monitoring/accuracies2.txt', 'w').close()
+open('../Data/results/monitoring/accuracies_val.txt', 'w').close()
+open('../Data/results/monitoring/accuracies_test.txt', 'w').close()
 
 # dataset
 dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
-dataset.reduceDataset(12)
+dataset.reduceDataset(3)
 
 validationset = SRCdataset('../Data/train/validation_list.txt', '../Data/train/audio')
-validationset.reduceDataset(12)
+validationset.reduceDataset(3)
 
 #training phase
 training_first_step(dataset, validationset)
-#training_second_step(dataset, validationset, '../Data/results/model_save/model_save_ResNet_'+str(NUM_EPOCHS)+'.ckpt')
-#training_third_step(dataset, validatoinset, '../Data/results/model_save/model_save_BGRU_'+str(NUM_EPOCHS)+'.ckpt')
-
-
-# pylint: enable=E1101, W0612
+training_second_step(dataset, validationset, '../Data/results/model_save/model_save_ResNet_'+str(NUM_EPOCHS)+'.ckpt')
+training_third_step(dataset, validationset, '../Data/results/model_save/model_save_BGRU_'+str(NUM_EPOCHS)+'.ckpt')

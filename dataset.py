@@ -6,7 +6,6 @@ import scipy.io.wavfile as scwav
 from math import floor
 from os import listdir
 from os.path import isfile, join
-from data_setup import clear_silence
 # pylint: disable=E1101, W0612
 
 labels = ['yes','no','up','down','left','right','on','off','stop','go','unknown','silence']
@@ -21,18 +20,17 @@ class SRCdataset(Dataset):
         self.root_dir = root_dir
         self.txt_file = txt_file
 
-        # Build data set list
         with open(txt_file, 'r') as datalist:
-            # For testing and validation we use everthing
+            # testing and validation use every sample
             if 'training' not in txt_file:
                 self.data_list = [x.strip() for x in datalist.readlines()]
                 self.unknown = []
-            # For training we have to balance the dataset
+            # training needs balanced sample
             else:
                 clear_silence(txt_file)
                 data = [x.strip() for x in datalist.readlines()]
                 data_list, unknown_list = [], []
-                # Balancing the unknown set
+                # unknown set balancing
                 for x in data:
                     xlabel = x.split('/')
                     xlabel = xlabel[0]
@@ -47,13 +45,13 @@ class SRCdataset(Dataset):
 
                 self.data_list = data_list
                 self.unknown = unknown_list
+                # random generation of 'silence' class
                 self.generateSilenceClass()
         self.display()
 
     def shuffleUnknown(self):
-        # Remove previous unknown samples
-        new_data_list = []
-        ucount = 0
+        new_data_list, ucount = [], 0
+        # keep samples from other classes
         for x in self.data_list:
             xlabel = x.split('/')
             xlabel = xlabel[0]
@@ -61,12 +59,10 @@ class SRCdataset(Dataset):
                 new_data_list.append(x)
             else:
                 ucount += 1
-
-        # Sample new ones
+        # randomly select new 'unknown' samples
         for i in range(ucount):
             sample_index = randint(0, len(self.unknown)-1)
             new_data_list.append(self.unknown[sample_index])
-        
         self.data_list = new_data_list
 
     def unknownStats(self):
@@ -79,8 +75,7 @@ class SRCdataset(Dataset):
         print('Unknown distribution :  ', [(unknown_words[i], floor(100*repartition[i]/np.sum(repartition))) for i in range(len(repartition))])
 
     def reduceDataset(self, label_size):
-        repartition = np.zeros((12), dtype = np.int16)
-        new_data_list = []
+        repartition, new_data_list = np.zeros((12), dtype = np.int16), []
         for x in self.data_list:
             xlabel = x.split('/')
             xlabel = xlabel[0]
@@ -88,13 +83,12 @@ class SRCdataset(Dataset):
                 if repartition[labels.index(xlabel)] < label_size:
                     new_data_list.append(x)
                     repartition[labels.index(xlabel)] += 1
-                
             else:
                 if repartition[10] < label_size:
                     new_data_list.append(x)
                     repartition[10] += 1
-        print('Reduced class distribution :  ', [(labels[i], repartition[i]) for i in range(12)])
         self.data_list = new_data_list
+        self.display()
     
     def display(self):
         repartition = np.zeros((12), dtype = np.int16)
@@ -108,34 +102,29 @@ class SRCdataset(Dataset):
         print('class distribution :  ', [(labels[i], repartition[i]) for i in range(12)])
     
     def generateSilenceClass(self):
-        #clearing silence
-        f = open(self.txt_file,'r')
-        lines = f.readlines()
-        f.close()
-        f = open(self.txt_file,'w')
-        for line in lines:
-            if 'silence' not in line:
-                f.write(line)
-        f.close()
-
+        # clears silence in both txt_file and data_list
+        clear_silence(self.txt_file)
         self.data_list = [x for x in self.data_list if 'silence' not in x]
+
         nsamples = len(self.data_list)//11
         path = self.root_dir +'/_background_noise_'
         noise_list = [f for f in listdir(path) if isfile(join(path, f))]
         noise_list.remove('README.md')
         
+        # generate 'silence' sample
         for i in range(nsamples):
-            #select random noise effect
+            # select random noise effect
             selected = noise_list[randint(0, len(noise_list)-1)]
             _, sample = scwav.read(self.root_dir+'/_background_noise_/'+selected)
-            #select random start index over 60s
+            # select random start index over 60s
             start_index = randint(0, len(sample)-16000)
-            #copy 1s after start index
+            # copy 1s after start index
             new_sample = sample[start_index:start_index+16000]
             new_sample = np.rint(new_sample).astype('int16')
-            #write file
+            # write file
             scwav.write(self.root_dir+'/silence/silent'+str(i)+'.wav', 16000, new_sample)
         
+        # appends new samples in both txt_file and data_list
         with open(self.txt_file, 'a') as myfile:
             noise_list = [f for f in listdir(self.root_dir+'/silence') if isfile(join(self.root_dir+'/silence', f))]
             for i in range(nsamples):
@@ -146,7 +135,7 @@ class SRCdataset(Dataset):
         return len(self.data_list)
 
     def __getitem__(self, idx):
-        # Get label of recording
+        # get label of recording
         item_name = self.data_list[idx]
         label = item_name.split('/')
         label = label[0]
@@ -155,14 +144,30 @@ class SRCdataset(Dataset):
         else:
             label_idx = 10
 
-        # Get sample
+        # get sample
         item_path = self.root_dir + '/' + item_name
         _, new_sample = scwav.read(item_path)
         new_sample = torch.from_numpy(new_sample)
 
+        # zero pad sample if length is not seq_length
         if len(new_sample) != seq_length:
             padding = seq_length - len(new_sample)
             new_sample = torch.cat((new_sample, torch.zeros([padding], dtype = torch.short)), 0)
         new_sample = new_sample.type(torch.DoubleTensor)
         sample = {'audio': new_sample, 'label': label_idx}
         return sample
+
+
+
+def clear_silence(filename):
+    """
+    clear 'silence' occurences in a text file
+    """
+    f = open(filename,'r')
+    lines = f.readlines()
+    f.close()
+    f = open(filename,'w')
+    for line in lines:
+        if 'silence' not in line:
+            f.write(line)
+    f.close()

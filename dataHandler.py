@@ -4,17 +4,27 @@ import scipy.io.wavfile as scwav
 import numpy as np
 from random import randint, uniform
 
-def make_training_list():
-    onlyfiles = listdir('../Data/train/audio')
+"""
+Functions below are run once to setup:
+-> training list, validation and testing list.
+-> static samples for 'silence' class for the validation and testing list.
+"""
+
+def make_training_list(filepath):
+    """
+    Every sample that is not in either testing or validation lists belongs to the training list
+    """
+    onlyfiles = listdir(filepath+'/audio')
     onlyfiles.remove('_background_noise_')
 
     allfiles = []
     for directory in onlyfiles:
-        allfiles += [directory+'/'+f for f in listdir('../Data/train/audio/'+directory) if isfile(join('../Data/train/audio/'+directory, f))]
+        allfiles += [directory+'/'+f for f in listdir(filepath+'/audio/'+directory) 
+        if isfile(join(filepath+'/audio/'+directory, f))]
 
-    validation_list = open('../Data/train/validation_list.txt','r')
-    testing_list = open('../Data/train/testing_list.txt','r')
-    train_file = open('../Data/train/training_list.txt', 'w')
+    validation_list = open(filepath+'/validation_list.txt','r')
+    testing_list = open(filepath+'/testing_list.txt','r')
+    train_file = open(filepath+'/training_list.txt', 'w')
 
     validation = validation_list.readlines()
     validation = [x.strip() for x in validation]
@@ -26,7 +36,7 @@ def make_training_list():
         if filename not in notTrain:
             train_file.write(filename+'\n')
 
-#make_training_list()
+#make_training_list('../Data/train')
 
 def silence_generator():
     path = '../Data/train/audio/_background_noise_'
@@ -51,17 +61,23 @@ def silence_generator():
 
 #silence_generator()
 
-def append_silence(filename):
+def append_silence(dirpath, filename):
+    """
+    Reads 'silence' class file names in a directory and writes it to a txt_file
+    """
     with open(filename, 'a') as myfile:
-        noise_list = [f for f in listdir('../Data/train/audio/silence') if isfile(join('../Data/train/audio/silence', f))]
+        noise_list = [f for f in listdir(dirpath+'/audio/silence') 
+        if isfile(join(dirpath+'/audio/silence', f))]  # egacy function to be changed
         for i in range(0, 270):
             myfile.write('silence/silent'+str(i)+'valtest.wav\n')
 
-#append_silence('../Data/train/validation_list.txt')
-#append_silence('../Data/train/test_file.txt')
+#append_silence(../Data/train, '../Data/train/validation_list.txt')
+#append_silence(../Data/train, '../Data/train/test_file.txt')
 
 def clear_silence(filename):
-    #clearing silence in training_list.txt
+    """
+    clear 'silence' occurences in a text file
+    """
     f = open(filename,'r')
     lines = f.readlines()
     f.close()
@@ -72,7 +88,7 @@ def clear_silence(filename):
     f.close()
 
 #clear_silence('../Data/train/validation_list.txt')
-#clear_silence('../Data/train/test_file.txt')
+
 
 
 
