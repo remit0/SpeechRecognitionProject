@@ -12,17 +12,15 @@ from model import Network, BasicBlock
 La liste des courses : 
 """
 """
-sending work to GPU + access server data
-verify silence class
-what about creating a folder with silence in the server + training_list ?
-testing procedure
-validation procedure
-save results at each step // validation + test set
-litterature review + what to do + plan mFCC combine (noisy conditions) spectogram
-validation set : early stopping accuracy decrease? fix number of epochs 20
-loss and accuracy curves 
+check with pingchuan model / loss curve / learning rate decay
 
-just resnet tests
+extract MFCCs, derivatives, train BGRU // other things stay the same 40ms window 20s hop size python_speech_features librosa 
+Log spectrograms features
+time series features
+
+Spectrogram + CNN as image
+
+256 features bgru // see for learning rate // layers of bgru 
 """
 
 # Device configuration
