@@ -1,6 +1,9 @@
+#!/bin/bash -
+#PBS -l nodes=gpu12
 echo START
 export ROOT_DIR=/vol/gpudata/rar2417
-export CUDA_HOME=/vol/gpudata/cuda/9.1.85
+#export CUDA_HOME=/vol/gpudata/cuda/9.1.85
+. /vol/gpudata/cuda/9.1.85/setup.sh
 export PATH=${PATH}:${CUDA_HOME}/bin
 export SRC_PATH=${ROOT_DIR}/src
 export DATA_PATH=${ROOT_DIR}/Data
