@@ -8,7 +8,7 @@ import os
 parser = argparse.ArgumentParser()
 parser.add_argument('source_path', type=str, help='Path to source code resnet.py, sortdata.py')
 parser.add_argument('data_path', type=str, help='Path to training, validation and testing sets.')
-parser.add_argument('ouput_path', type=str, help='Path to load/save the models.')
+parser.add_argument('output_path', type=str, help='Path to load/save the models.')
 args = parser.parse_args()
 
 source = args.source_path
