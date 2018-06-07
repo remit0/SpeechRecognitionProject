@@ -1,0 +1,4 @@
+scp rar2417@firecrest.doc.ic.ac.uk:/vol/gpudata/rar2417/results/loss_step_1.txt ~/Desktop
+
+ssh rar2417@firecrest.doc.ic.ac.uk
+
