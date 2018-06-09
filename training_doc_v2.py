@@ -7,16 +7,16 @@ import os
 # pylint: disable=E1101, W0612
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-source_path', '--sp', type=str, help='path to python files')
-parser.add_argument('-data_path', '--dp',type=str, help='path to train folder')
-parser.add_argument('-output_path', '--op',type=str, help='path to results folder, contains subfolder "models"')
-parser.add_argument('-model', '--mdl', type=str, help='path to training save')
+parser.add_argument('-source_path', '--source_path', type = str, help='path to python files')
+parser.add_argument('-dp', '--data_path',type = str, help='path to train folder')
+parser.add_argument('-op', '--output_path',type = str, help='path to results folder, contains subfolder "models"')
+parser.add_argument('-mdl', '--model', type = str, help='path to training save')
 parser.add_argument('-e', '--epoch', type = int, help='NUM_EPOCHS')
 parser.add_argument('-b', '--batch_size', type = int, help='BATCH_SIZE')
 parser.add_argument('-lr', '--learning_rate', type = float, help='LEARNING_RATE')
-parser.add_argument('-ft', '--features', type = int , help='NUM_FEATURES')
-parser.add_argument('-nl', '--layers', type = int , help='NUM_LAYERS')
-parser.add_argument('-mode', '--md', type=int, help='1, 2 or 3')
+parser.add_argument('-ft', '--features', type = int, help='NUM_FEATURES')
+parser.add_argument('-nl', '--layers', type = int, help='NUM_LAYERS')
+parser.add_argument('-md', '--mode', type = int, help='1, 2 or 3')
 args = parser.parse_args()
 
 source = '/vol/gpudata/rar2417/src'
