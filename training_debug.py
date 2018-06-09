@@ -26,7 +26,7 @@ Spectrogram + CNN as image
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.backends.cudnn.enabled = False 
-torch.set_default_tensor_type('torch.DoubleTensor')
+torch.set_default_tensor_type('torch.FloatTensor')
 
 # Hyperparams
 NUM_EPOCHS = 2
@@ -47,8 +47,8 @@ def training_first_step(dataset, validationset):
     for name, param in model.named_parameters():
         if 'gru' in name:
             param.requires_grad = False
-        #if 'fc2' in name:
-        #    param.requires_grad = False
+        if 'fc2' in name:
+            param.requires_grad = False
 
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss()
@@ -212,11 +212,6 @@ def evaluation(model, dataset, filename, batchsize=2):
 """
 MAIN
 """
-
-# clear previous results
-open('../Data/results/monitoring/accuracies_val.txt', 'w').close()
-open('../Data/results/monitoring/accuracies_test.txt', 'w').close()
-
 # dataset
 dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
 dataset.reduceDataset(3)

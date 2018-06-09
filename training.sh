@@ -11,6 +11,6 @@ export DATA_PATH=${ROOT_DIR}/Data
 export OUTPUT_PATH=${ROOT_DIR}/results
 
 source ${ROOT_DIR}/venv/project/bin/activate
-python ${SRC_PATH}/training_doc.py ${SRC_PATH} ${DATA_PATH} ${OUTPUT_PATH} ${OUTPUT_PATH}/models/model_save_ResNet_1.ckpt ${OUTPUT_PATH}/models/model_save_BGRU_1.ckpt.ckpt -e 20 -b 20 -lr 0.003 -ft 512 -nl 2
-
+#python ${SRC_PATH}/training_doc.py -source_path ${SRC_PATH} -data_path ${DATA_PATH} -output_path ${OUTPUT_PATH} -model ${OUTPUT_PATH}/models/model_save_ResNet_1.ckpt -e 20 -b 20 -lr 0.003 -ft 512 -nl 2 -mode 1
+python ${SRC_PATH}/training_doc.py -mode 1
 echo END

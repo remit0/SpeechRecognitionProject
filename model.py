@@ -46,7 +46,7 @@ class Network(nn.Module):
         self.fc1 = nn.Linear(512, 512)
         self.gru = nn.GRU(512, num_features, num_layers = num_layers, bidirectional = True, batch_first = True)
         self.fc2 = nn.Linear(num_features*2, 12)
-        self.softmax = nn.Softmax(dim=2)
+        #self.softmax = nn.Softmax(dim=2)
 
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
