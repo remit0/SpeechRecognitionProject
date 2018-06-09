@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import StepLR
+from torch.autograd import Variable
 import argparse
 import os
 # pylint: disable=E1101, W0612
@@ -34,13 +35,14 @@ if args.model is not None:
 
 os.chdir(source)
 
-from dataset import SRCdataset
-from model import Network, BasicBlock
+from dataset_031 import SRCdataset
+from model_031 import Network, BasicBlock
 
 # Device configuration
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+use_cuda = torch.cuda.is_available()
+print(use_cuda)
 torch.backends.cudnn.enabled = True 
-torch.set_default_tensor_type('torch.FloatTensor')
+dtype = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
 
 # Hyperparams
 NUM_EPOCHS = 20
@@ -99,8 +101,8 @@ def training(model, dataset, validationset, mode):
         for i_batch, batch in enumerate(dataloader):
             # Forward
             optimizer.zero_grad()
-            outputs = model(batch['audio'].unsqueeze(1).to(device))
-            loss = criterion(outputs, batch['label'].to(device))
+            outputs = model(Variable(batch['audio'].unsqueeze(1).cuda()))
+            loss = criterion(outputs, Variable(batch['label'].cuda()))
 
             # Backward and optimize
             loss.backward()
@@ -109,13 +111,13 @@ def training(model, dataset, validationset, mode):
             # Save loss
             if mode == 1:
                 with open(output_path +'/loss_step_1.txt', 'a') as myfile:
-                    myfile.write(str(loss.item())+'\n')
+                    myfile.write(str(loss.data[0])+'\n')
             if mode == 2:
                 with open(output_path +'/loss_step_2.txt', 'a') as myfile:
-                    myfile.write(str(loss.item())+'\n')
+                    myfile.write(str(loss.data[0])+'\n')
             if mode == 3:
                 with open(output_path +'/loss_step_3.txt', 'a') as myfile:
-                    myfile.write(str(loss.item())+'\n')
+                    myfile.write(str(loss.data[0])+'\n')
 
         # Save model, accuracy at each epoch
         evaluation(model, validationset, output_path + '/accuracies_val.txt', 4)
@@ -143,10 +145,10 @@ def evaluation(model, dataset, filename, batchsize=2):
 
     with torch.no_grad():
         for i_batch, batch in enumerate(dataloader):
-            outputs = model(batch['audio'].unsqueeze(1).to(device))
+            outputs = model(Variable(batch['audio'].unsqueeze(1).cuda()))
             _, predicted = torch.max(outputs.data, 1)
             total += batchsize
-            correct += (predicted == batch['label'].to(device)).sum().item()
+            correct += (predicted == Variable(batch['label'].cuda())).sum().item()
 
     with open(filename, 'a') as f:
         f.write(str(100 * correct / float(total))+'\n')
@@ -161,9 +163,10 @@ validationset = SRCdataset(data_path + '/validation_list.txt', data_path + '/aud
 
 #training phase
 if MODE == 1:
-    model = Network(BasicBlock, NUM_FEATURES, NUM_LAYERS).to(device)
+    model = Network(BasicBlock, NUM_FEATURES, NUM_LAYERS)
 else:
-    model = Network(BasicBlock, NUM_FEATURES, NUM_LAYERS).to(device)
+    model = Network(BasicBlock, NUM_FEATURES, NUM_LAYERS)
     model.load_state_dict(torch.load(MODEL))
-
+if use_cuda:
+    model.cuda()
 training(model, dataset, validationset, MODE)

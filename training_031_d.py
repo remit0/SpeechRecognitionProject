@@ -2,10 +2,10 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import StepLR
-import Variable
+from torch.autograd import Variable
 # Home made 
-from dataset import SRCdataset
-from model import Network, BasicBlock
+from dataset_031 import SRCdataset
+from model_031 import Network, BasicBlock
 
 # pylint: disable=E1101, W0612
 """
@@ -22,16 +22,15 @@ Spectrogram + CNN as image
 
 256 features bgru // see for learning rate // layers of bgru 
 """
-print(torch.version.cuda)
-print(torch.__version__)
+
 # Device configuration
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+use_cuda = torch.cuda.is_available()
 torch.backends.cudnn.enabled = True 
-torch.set_default_tensor_type('torch.FloatTensor')
+dtype = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
 
 # Hyperparams
 NUM_EPOCHS = 10
-BATCH_SIZE = 10
+BATCH_SIZE = 5
 LEARNING_RATE = 0.003
 NUM_FEATURES = 256
 NUM_LAYERS = 2
@@ -76,8 +75,8 @@ def training(model, dataset, validationset, mode):
         for i_batch, batch in enumerate(dataloader):
             # Forward
             optimizer.zero_grad()
-            outputs = model(batch['audio'].unsqueeze(1).to(device))
-            loss = criterion(outputs, batch['label'].to(device))
+            outputs = model(Variable(batch['audio'].unsqueeze(1).cuda()))
+            loss = criterion(Variable(outputs, batch['label'].cuda()))
 
             # Backward and optimize
             loss.backward()
@@ -125,10 +124,10 @@ def evaluation(model, dataset, filename, batchsize=2):
 
     with torch.no_grad():
         for i_batch, batch in enumerate(dataloader):
-            outputs = model(batch['audio'].unsqueeze(1).to(device))
+            outputs = model(Variable(batch['audio'].unsqueeze(1).cuda()))
             _, predicted = torch.max(outputs.data, 1)
             total += batchsize
-            correct += (predicted == batch['label'].to(device)).sum().item()
+            correct += (predicted == Variable(batch['label'].cuda())).sum().item()
             print('Batch[{}/{}]'.format(i_batch+1, num_batches))
 
     print('Accuracy of the network : %d %%' % (100 * correct / total))
@@ -147,7 +146,9 @@ dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
 validationset = SRCdataset('../Data/train/validation_list.txt', '../Data/train/audio')
 
 # model & training
-model = Network(BasicBlock, NUM_FEATURES, NUM_LAYERS).to(device)
+model = Network(BasicBlock, NUM_FEATURES, NUM_LAYERS)
+if use_cuda:
+    model.cuda()
 training(model, dataset, validationset, 1)
 
 #model = Network(BasicBlock, NUM_FEATURES, NUM_LAYERS).to(device)
