@@ -72,8 +72,6 @@ def training_first_step(dataset, validationset):
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE)
 
-    num_batches = dataset.__len__() // BATCH_SIZE
-
     for epoch in range(NUM_EPOCHS):
         dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
@@ -120,8 +118,6 @@ def training_second_step(dataset, validationset, modelsave):
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE)
 
-    num_batches = dataset.__len__() // BATCH_SIZE
-
     for epoch in range(NUM_EPOCHS):
         dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
@@ -160,8 +156,6 @@ def training_third_step(dataset, validationset, modelsave):
         params.requires_grad = True
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
-
-    num_batches = dataset.__len__() // BATCH_SIZE
 
     for epoch in range(NUM_EPOCHS):
         dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
@@ -206,7 +200,7 @@ def evaluation(model, dataset, filename, batchsize=2):
             correct += (predicted == batch['label'].to(device)).sum().item()
 
     with open(filename, 'a') as f:
-        f.write(str(100 * correct / total)+'\n')
+        f.write(str(100 * correct / float(total))+'\n')
     model = model.train()
 
 """

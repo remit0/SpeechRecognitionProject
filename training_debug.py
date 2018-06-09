@@ -12,7 +12,7 @@ from model import Network, BasicBlock
 La liste des courses : 
 """
 """
-check with pingchuan model / loss curve / learning rate decay
+check with pingchuan model / loss curve / learning rate decay divide by half every 5 epochs
 
 extract MFCCs, derivatives, train BGRU // other things stay the same 40ms window 20s hop size python_speech_features librosa 
 Log spectrograms features
@@ -47,8 +47,8 @@ def training_first_step(dataset, validationset):
     for name, param in model.named_parameters():
         if 'gru' in name:
             param.requires_grad = False
-        if 'fc2' in name:
-            param.requires_grad = False
+        #if 'fc2' in name:
+        #    param.requires_grad = False
 
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss()
@@ -62,6 +62,7 @@ def training_first_step(dataset, validationset):
         for i_batch, batch in enumerate(dataloader):
             # Forward
             optimizer.zero_grad()
+            print(batch['audio'].unsqueeze(1).to(device).size())
             outputs = model(batch['audio'].unsqueeze(1).to(device))
             loss = criterion(outputs, batch['label'].to(device))
 
@@ -149,12 +150,12 @@ def training_third_step(dataset, validationset, modelsave):
     for params in model.parameters():
         params.requires_grad = True
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE*0.1)
+    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     num_batches = dataset.__len__() // BATCH_SIZE
 
     for epoch in range(NUM_EPOCHS):
-        dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False, drop_last=True)
+        dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
         for i_batch, batch in enumerate(dataloader):
             # Forward
@@ -225,5 +226,5 @@ validationset.reduceDataset(3)
 
 #training phase
 training_first_step(dataset, validationset)
-training_second_step(dataset, validationset, '../Data/results/model_save/model_save_ResNet_'+str(NUM_EPOCHS)+'.ckpt')
-training_third_step(dataset, validationset, '../Data/results/model_save/model_save_BGRU_'+str(NUM_EPOCHS)+'.ckpt')
+#training_second_step(dataset, validationset, '../Data/results/model_save/model_save_ResNet_'+str(NUM_EPOCHS)+'.ckpt')
+#training_third_step(dataset, validationset, '../Data/results/model_save/model_save_BGRU_'+str(NUM_EPOCHS)+'.ckpt')
