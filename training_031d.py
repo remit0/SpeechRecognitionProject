@@ -75,8 +75,11 @@ def training(model, dataset, validationset, mode):
         for i_batch, batch in enumerate(dataloader):
             # Forward
             optimizer.zero_grad()
-            outputs = model(Variable(batch['audio'].unsqueeze(1).cuda()))
-            loss = criterion(Variable(outputs, batch['label'].cuda()))
+            if use_cuda:
+                batch['audio'], batch['label'] = batch['audio'].cuda(), batch['label'].cuda()
+            batch['audio'], batch['label'] = Variable(batch['audio']), Variable(batch['label'])
+            outputs = model(batch['audio'].unsqueeze(1))
+            loss = criterion(outputs, batch['label'])
 
             # Backward and optimize
             loss.backward()
@@ -84,7 +87,7 @@ def training(model, dataset, validationset, mode):
             
             # Display
             print ('Epoch [{}/{}], Step[{}/{}], Loss: {:.9f}'
-                .format(epoch+1, NUM_EPOCHS, i_batch+1, num_batches, loss.item()))
+                .format(epoch+1, NUM_EPOCHS, i_batch+1, num_batches, loss.data[0]))
             
             # Save loss
             if mode == 1:
@@ -122,13 +125,14 @@ def evaluation(model, dataset, filename, batchsize=2):
     num_batches = dataset.__len__() // batchsize
     dataloader = DataLoader(dataset, batch_size = batchsize, drop_last = True)
 
-    with torch.no_grad():
-        for i_batch, batch in enumerate(dataloader):
-            outputs = model(Variable(batch['audio'].unsqueeze(1).cuda()))
-            _, predicted = torch.max(outputs.data, 1)
-            total += batchsize
-            correct += (predicted == Variable(batch['label'].cuda())).sum().item()
-            print('Batch[{}/{}]'.format(i_batch+1, num_batches))
+    for i_batch, batch in enumerate(dataloader):
+        if use_cuda:
+            batch['audio'], batch['label'] = batch['audio'].cuda(), batch['label'].cuda()
+        outputs = model(Variable(batch['audio'].unsqueeze(1), volatile = True))
+        _, predicted = torch.max(outputs.data, 1)
+        total += batchsize
+        correct += (predicted == batch['label']).sum()
+        print('Batch[{}/{}]'.format(i_batch+1, num_batches))
 
     print('Accuracy of the network : %d %%' % (100 * correct / total))
     with open(filename, 'a') as f:
@@ -149,7 +153,8 @@ validationset = SRCdataset('../Data/train/validation_list.txt', '../Data/train/a
 model = Network(BasicBlock, NUM_FEATURES, NUM_LAYERS)
 if use_cuda:
     model.cuda()
-training(model, dataset, validationset, 1)
+evaluation(model, validationset, '../Data/results/monitoring/accuracies_val.txt')
+#training(model, dataset, validationset, 1)
 
 #model = Network(BasicBlock, NUM_FEATURES, NUM_LAYERS).to(device)
 #model.load_state_dict(torch.load( '../Data/results/model_save/model_save_ResNet_'+str(NUM_EPOCHS)+'.ckpt'))

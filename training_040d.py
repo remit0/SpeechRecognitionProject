@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import StepLR
-import Variable
+
 # Home made 
 from dataset import SRCdataset
 from model import Network, BasicBlock
@@ -22,8 +22,7 @@ Spectrogram + CNN as image
 
 256 features bgru // see for learning rate // layers of bgru 
 """
-print(torch.version.cuda)
-print(torch.__version__)
+
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.backends.cudnn.enabled = True 
@@ -141,14 +140,14 @@ MAIN
 """
 
 # dataset
-dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
+#dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
 
 # validatoinset
-validationset = SRCdataset('../Data/train/validation_list.txt', '../Data/train/audio')
+#validationset = SRCdataset('../Data/train/validation_list.txt', '../Data/train/audio')
 
 # model & training
-model = Network(BasicBlock, NUM_FEATURES, NUM_LAYERS).to(device)
-training(model, dataset, validationset, 1)
+#model = Network(BasicBlock, NUM_FEATURES, NUM_LAYERS).to(device)
+#training(model, dataset, validationset, 1)
 
 #model = Network(BasicBlock, NUM_FEATURES, NUM_LAYERS).to(device)
 #model.load_state_dict(torch.load( '../Data/results/model_save/model_save_ResNet_'+str(NUM_EPOCHS)+'.ckpt'))

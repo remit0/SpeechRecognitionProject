@@ -40,7 +40,6 @@ from model_031 import Network, BasicBlock
 
 # Device configuration
 use_cuda = torch.cuda.is_available()
-print(use_cuda)
 torch.backends.cudnn.enabled = True 
 dtype = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
 
@@ -143,12 +142,11 @@ def evaluation(model, dataset, filename, batchsize=2):
     model.eval()
     dataloader = DataLoader(dataset, batch_size = batchsize, drop_last = True)
 
-    with torch.no_grad():
-        for i_batch, batch in enumerate(dataloader):
-            outputs = model(Variable(batch['audio'].unsqueeze(1).cuda()))
-            _, predicted = torch.max(outputs.data, 1)
-            total += batchsize
-            correct += (predicted == Variable(batch['label'].cuda())).sum().item()
+    for i_batch, batch in enumerate(dataloader):
+        outputs = model(Variable(batch['audio'].unsqueeze(1).cuda(), volatile = True))
+        _, predicted = torch.max(outputs.data, 1)
+        total += batchsize
+        correct += (predicted == batch['label'].cuda()).sum()
 
     with open(filename, 'a') as f:
         f.write(str(100 * correct / float(total))+'\n')
