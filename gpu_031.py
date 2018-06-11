@@ -44,7 +44,7 @@ torch.backends.cudnn.enabled = True
 dtype = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
 
 # Hyperparams
-NUM_EPOCHS = 20
+NUM_EPOCHS = 50
 if args.epoch is not None:
     NUM_EPOCHS = args.epoch
 BATCH_SIZE = 20
@@ -93,8 +93,9 @@ def training(model, dataset, validationset, mode):
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE)
     scheduler = StepLR(optimizer, step_size=5, gamma=0.5)
-
-    for epoch in range(NUM_EPOCHS):
+    epoch, estop, maxval, maxind = 0, False, 0, 0
+    
+    while epoch < NUM_EPOCHS and not estop:
         dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
         scheduler.step()
         for i_batch, batch in enumerate(dataloader):
@@ -119,12 +120,19 @@ def training(model, dataset, validationset, mode):
                     myfile.write(str(loss.data[0])+'\n')
 
         # Save model, accuracy at each epoch
-        evaluation(model, validationset, output_path + '/accuracies_val.txt', 4)
         evaluation(model, dataset, output_path + '/accuracies_train.txt', 4)
+        newval = evaluation(model, validationset, output_path + '/accuracies_val.txt', 4)
+
+        # Early stopping
+        if newval > maxval:
+            maxval = newval
+            maxind = epoch
+        if epoch > maxind + 4:
+            estop = True
 
         dataset.shuffleUnknown()
         dataset.generateSilenceClass()
-
+        epoch += 1
         if mode == 1:
             torch.save(model.state_dict(), output_path + '/models/model_save_ResNet_'+str(epoch+1)+'.ckpt')
         if mode == 2:
@@ -151,6 +159,7 @@ def evaluation(model, dataset, filename, batchsize=2):
     with open(filename, 'a') as f:
         f.write(str(100 * correct / float(total))+'\n')
     model.train()
+    return(100 * correct / float(total))
 
 """
 MAIN
