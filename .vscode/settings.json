@@ -1,3 +1,7 @@
 {
+<<<<<<< HEAD
     "python.pythonPath": "/usr/bin/python3"
+=======
+    "python.pythonPath": "/home/remito/anaconda3/bin/python3"
+>>>>>>> 1f6888f33833da496845e7fe7f51256ed32708fc
 }

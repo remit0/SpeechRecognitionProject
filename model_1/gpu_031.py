@@ -47,7 +47,7 @@ dtype = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
 NUM_EPOCHS = 50
 if args.epoch is not None:
     NUM_EPOCHS = args.epoch
-BATCH_SIZE = 20
+BATCH_SIZE = 36
 if args.batch_size is not None:
     BATCH_SIZE = args.batch_size
 LEARNING_RATE = 0.003
@@ -62,6 +62,8 @@ if args.layers is not None:
 MODE = 1
 if args.mode is not None:
     MODE = args.mode
+if MODE == 3:
+    LEARNING_RATE = 0.0003
 
 """
 TRAINING
