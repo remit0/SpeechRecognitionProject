@@ -12,15 +12,9 @@ from model import Network, BasicBlock
 La liste des courses : 
 """
 """
-check with pingchuan learning rate decay divide by half every 5 epochs
-
 extract MFCCs, derivatives, train BGRU // other things stay the same 40ms window 20s hop size python_speech_features librosa 
-Log spectrograms features
-time series features
-
+Log spectrograms features => time series features
 Spectrogram + CNN as image
-
-256 features bgru // see for learning rate // layers of bgru 
 """
 
 # Device configuration
