@@ -7,7 +7,6 @@ from math import floor
 from os import listdir
 from os.path import isfile, join
 from librosa.feature import mfcc
-from librosa.display import specshow
 # pylint: disable=E1101, W0612
 
 labels = ['yes','no','up','down','left','right','on','off','stop','go','unknown','silence']
@@ -49,7 +48,6 @@ class SRCdataset(Dataset):
                 self.unknown = unknown_list
                 # random generation of 'silence' class
                 self.generateSilenceClass()
-        self.display()
 
     def shuffleUnknown(self):
         new_data_list, ucount = [], 0
@@ -81,7 +79,6 @@ class SRCdataset(Dataset):
                     new_data_list.append(x)
                     repartition[10] += 1
         self.data_list = new_data_list
-        self.display()
     
     def display(self):
         repartition = np.zeros((12), dtype = np.int16)

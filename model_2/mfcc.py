@@ -2,31 +2,72 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import StepLR
-from dataset import SRCdataset
-from model import Network
-from librosa.feature import mfcc
-from librosa.display import specshow
+import argparse
+import os
 # pylint: disable=E1101, W0612
 
 """
 extract MFCCs, derivatives, train BGRU // other things stay the same 40ms window 20s hop size 
 """
 
+parser = argparse.ArgumentParser()
+parser.add_argument('-source_path', '--source_path', type = str, help='path to python files')
+parser.add_argument('-dp', '--data_path',type = str, help='path to train folder')
+parser.add_argument('-op', '--output_path',type = str, help='path to results folder, contains subfolder "models"')
+parser.add_argument('-e', '--epoch', type = int, help='NUM_EPOCHS')
+parser.add_argument('-b', '--batch_size', type = int, help='BATCH_SIZE')
+parser.add_argument('-lr', '--learning_rate', type = float, help='LEARNING_RATE')
+parser.add_argument('-ft', '--features', type = int, help='NUM_FEATURES')
+parser.add_argument('-nl', '--layers', type = int, help='NUM_LAYERS')
+parser.add_argument('-key', '--keyName', type = str, help='unique key')
+parser.add_argument('-sz', '--step_size', type = int, help='lr decay')
+args = parser.parse_args()
+
+source = '/vol/gpudata/rar2417/src/model2'
+if args.source_path is not None:
+    source = args.source_path
+data_path = '/vol/gpudata/rar2417/Data'
+if args.data_path is not None:
+    data_path = args.data_path
+output_path = '/vol/gpudata/rar2417/results/model2'
+if args.output_path is not None:
+    output_path = args.output_path
+
+os.chdir(source)
+from dataset_mfcc import SRCdataset
+from model_mfcc import Network, accuracy
+
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.set_default_tensor_type('torch.FloatTensor')
 
 # Hyperparams
-NUM_EPOCHS = 1
-BATCH_SIZE = 2
+NUM_EPOCHS = 70
+if args.epoch is not None:
+    NUM_EPOCHS = args.epoch
+BATCH_SIZE = 36
+if args.batch_size is not None:
+    BATCH_SIZE = args.batch_size
 LEARNING_RATE = 0.003
-NUM_FEATURES = 256
+if args.learning_rate is not None:
+    LEARNING_RATE = args.learning_rate
+NUM_FEATURES = 512
+if args.features is not None:
+    NUM_FEATURES = args.features
 NUM_LAYERS = 2
+if args.layers is not None:
+    NUM_LAYERS = args.layers
+KEY = ''
+if args.keyName is not None:
+    KEY = args.keyName
+STEP_SIZE = 5
+if args.step_size is not None:
+    STEP_SIZE = args.step_size
 
 # Model & Dataset
-model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS)
-dataset = SRCdataset('../Data/train/training_list.txt', '../Data/train/audio')
-valset = SRCdataset('../Data/train/validation_list.txt', '../Data/train/audio')
+model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS).to(device)
+dataset = SRCdataset(data_path + '/training_list.txt', data_path + '/audio')
+valset = SRCdataset(data_path + '/validation_list.txt', data_path + '/audio')
 
 for params in model.parameters():
     params.requires_grad = True
@@ -34,9 +75,8 @@ for params in model.parameters():
 # Loss and optimizer
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
-scheduler = StepLR(optimizer, step_size=5, gamma=0.5)
+scheduler = StepLR(optimizer, step_size=STEP_SIZE, gamma=0.5)
 epoch, estop, maxval, maxind = 0, False, 0, 0
-num_batches = dataset.__len__() // BATCH_SIZE
 
 while epoch < NUM_EPOCHS and not estop:
     dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
@@ -50,49 +90,23 @@ while epoch < NUM_EPOCHS and not estop:
         # Backward and optimize
         loss.backward()
         optimizer.step()
-        
-        # Display
-        print ('Epoch [{}/{}], Step[{}/{}], Loss: {:.9f}'
-            .format(epoch+1, NUM_EPOCHS, i_batch+1, num_batches, loss.item()))
-        
+                
         # Save loss
-        with open('../Data/results/monitoring/lossie.txt', 'a') as myfile:
+        with open( output_path + '/loss_'+KEY+'.txt', 'a') as myfile:
             myfile.write(str(loss.item())+'\n')
 
     # Save model, accuracy at each epoch
-    newval = evaluation(model, valset, '../Data/results/monitoring/accuracies1.txt', 4)
-    evaluation(model, dataset, '../Data/results/monitoring/accuracies2.txt', 4)
+    newval = accuracy(model, device, valset, output_path + '/accVal_'+KEY+'.txt', 4)
+    accuracy(model, device, dataset, output_path + '/accTrain_'+KEY+'.txt', 4)
     
     # Early stopping
     if newval > maxval:
         maxval = newval
         maxind = epoch
-        torch.save(model.state_dict(), '../Data/results/mfcc.ckpt')
-    if epoch > maxind + 4:
+        torch.save(model.state_dict(), output_path+'/models/mfcc_'+KEY+'.ckpt')
+    if epoch > maxind + 9:
         estop = True
-
+    
     dataset.shuffleUnknown()
     dataset.generateSilenceClass()
-
-
-"""
-ACCURACY
-"""
-
-def evaluation(model, dataset, filename, batchsize=2):
-    total, correct = 0, 0
-    model.eval()
-    dataloader = DataLoader(dataset, batch_size = batchsize, drop_last = True)
-    num_batches = dataset.__len__() // batchsize
-    with torch.no_grad():
-        for i_batch, batch in enumerate(dataloader):
-            outputs = model(batch['mfccs'].to(device))
-            _, predicted = torch.max(outputs.data, 1)
-            total += batchsize
-            correct += (predicted == batch['label'].to(device)).sum().item()
-            print('Batch[{}/{}]'.format(i_batch+1, num_batches))
-    print('Accuracy of the network : %d %%' % (100 * correct / total))
-    with open(filename, 'a') as f:
-        f.write(str(100 * correct / float(total))+'\n')
-    model.train()
-    return(100 * correct / float(total))
+    epoch += 1
