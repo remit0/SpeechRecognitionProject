@@ -145,9 +145,9 @@ class SRCdataset(Dataset):
 
         # compute mfccs & first & second order gradient
         mfccs = mfcc(new_sample, seq_length, n_mfcc=23, n_fft=640, hop_length=320) #n_mfcc x 51
-        grad_mfccs = np.gradient(mfccs, axis = 0)
+        grad_mfccs = np.gradient(mfccs, axis = 1)
         mfccs = np.concatenate((mfccs, grad_mfccs)) #2*n_mfcc x 51
-        mfccs = np.concatenate((mfccs, np.gradient(grad_mfccs, axis = 0))) #3*n_mfcc x 51
+        mfccs = np.concatenate((mfccs, np.gradient(grad_mfccs, axis = 1))) #3*n_mfcc x 51
         mfccs = torch.from_numpy(mfccs)
         mfccs = mfccs.type(torch.FloatTensor)
 

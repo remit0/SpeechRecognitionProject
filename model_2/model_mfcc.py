@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 
 class Network(nn.Module):
 
-    def __init__(self, num_features = 512, num_layers = 2):
+    def __init__(self, num_features = 69, num_layers = 2):
         super(Network, self).__init__()
         self.gru = nn.GRU(69, num_features, num_layers = num_layers, bidirectional = True, batch_first = True)
         self.fc = nn.Linear(num_features*2, 12)
