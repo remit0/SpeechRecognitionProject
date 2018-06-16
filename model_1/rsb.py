@@ -12,6 +12,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-source_path', '--source_path', type = str, help='path to python files')
 parser.add_argument('-dp', '--data_path',type = str, help='path to train folder')
 parser.add_argument('-op', '--output_path',type = str, help='path to results folder, contains subfolder "models"')
+parser.add_argument('-key', '--filekey', type = str, help='key for multiple trainings')
 parser.add_argument('-mdl', '--model', type = str, help='path to training save')
 parser.add_argument('-e', '--epoch', type = int, help='NUM_EPOCHS')
 parser.add_argument('-b', '--batch_size', type = int, help='BATCH_SIZE')
@@ -19,7 +20,7 @@ parser.add_argument('-lr', '--learning_rate', type = float, help='LEARNING_RATE'
 parser.add_argument('-ft', '--features', type = int, help='NUM_FEATURES')
 parser.add_argument('-nl', '--layers', type = int, help='NUM_LAYERS')
 parser.add_argument('-md', '--mode', type = int, help='1, 2 or 3')
-parser.add_argument('-sz', '--step', type = int, help='decay')
+parser.add_argument('-ld', '--lamb', type = int, help='decay')
 args = parser.parse_args()
 
 source = '/vol/gpudata/rar2417/src/model1'
@@ -34,6 +35,9 @@ if args.output_path is not None:
 MODEL = output_path + '/models/model_save_ResNet_1.ckpt'
 if args.model is not None:
     MODEL = args.model
+KEY = ''
+if args.filekey is not None:
+    KEY = args.filekey
 
 os.chdir(source)
 from dataset_rsb import SRCdataset
@@ -46,13 +50,26 @@ torch.set_default_tensor_type('torch.FloatTensor')
 
 # Hyperparams
 NUM_EPOCHS = 50
+if args.epoch is not None:
+    NUM_EPOCHS = args.epoch
 BATCH_SIZE = 20
+if args.batch_size is not None:
+    BATCH_SIZE = args.batch_size
 LEARNING_RATE = 0.003
+if args.learning_rate is not None:
+    LEARNING_RATE = args.learning_rate
 NUM_FEATURES = 512
+if args.features is not None:
+    NUM_FEATURES = args.features
 NUM_LAYERS = 2
+if args.layers is not None:
+    NUM_LAYERS = args.layers
 MODE = 1
-KEY = ''
+if args.mode is not None:
+    MODE = args.mode
 LAMBDA = 0.87
+if args.lamb is not None:
+    LAMBDA = args.lamb
 
 # Model & Dataset
 dataset = SRCdataset(data_path + '/training_list.txt', data_path + '/audio')
