@@ -43,9 +43,7 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, 2, stride=2)
         self.layer4 = self._make_layer(block, 512, 2, stride=2)
         self.fc1 = nn.Linear(512, 512)
-
-        if mode == 1:
-            self.backend_conv1 = nn.Sequential(
+        self.backend_conv1 = nn.Sequential(
             nn.Conv1d(500, 2*500, 5, 2, 0, bias=False),
             nn.BatchNorm1d(2*500),
             nn.ReLU(True),
@@ -54,7 +52,7 @@ class ResNet(nn.Module):
             nn.BatchNorm1d(4*500),
             nn.ReLU(True),
             )
-            self.backend_conv2 = nn.Sequential(
+        self.backend_conv2 = nn.Sequential(
             nn.Linear(4*500, 500),
             nn.BatchNorm1d(500),
             nn.ReLU(True),
@@ -96,7 +94,7 @@ class ResNet(nn.Module):
         x = self.layer3(x)
         x = self.layer4(x)              #batchSize x features(512) x seqLen(500)
 
-        if self.backend_conv1 is not None:
+        if self.mode == 1:
             x = torch.transpose(x,1,2)
             x = self.backend_conv1(x)
             x = torch.mean(x, 2)

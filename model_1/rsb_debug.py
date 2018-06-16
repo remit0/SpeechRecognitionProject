@@ -8,20 +8,19 @@ from model_rsb import Network, ResNet, BasicBlock, accuracy
 
 data_path = '../Data/train'
 output_path = '../Data/results'
-MODEL = output_path + '/models/model_save_BGRU_4.ckpt'
+MODEL = output_path + '/models/BGRU_debug.ckpt'
 
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.set_default_tensor_type('torch.FloatTensor')
-print(device)
 
 # Hyperparams
-NUM_EPOCHS = 2
-BATCH_SIZE = 4
+NUM_EPOCHS = 1
+BATCH_SIZE = 7
 LEARNING_RATE = 0.003
 NUM_FEATURES = 256
 NUM_LAYERS = 1
-MODE = 1
+MODE = 3
 KEY = 'debug'
 LAMBDA = 0.87
 
