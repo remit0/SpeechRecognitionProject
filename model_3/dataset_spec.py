@@ -6,6 +6,7 @@ import scipy.io.wavfile as scwav
 from math import floor
 from os import listdir
 from os.path import isfile, join
+from librosa.feature import mfcc
 # pylint: disable=E1101, W0612
 
 labels = ['yes','no','up','down','left','right','on','off','stop','go','unknown','silence']
@@ -47,7 +48,6 @@ class SRCdataset(Dataset):
                 self.unknown = unknown_list
                 # random generation of 'silence' class
                 self.generateSilenceClass()
-        self.display()
 
     def shuffleUnknown(self):
         new_data_list, ucount = [], 0
@@ -65,15 +65,6 @@ class SRCdataset(Dataset):
             new_data_list.append(self.unknown[sample_index])
         self.data_list = new_data_list
 
-    def unknownStats(self):
-        repartition = np.zeros((len(unknown_words)),  dtype = np.int16)
-        for x in self.data_list:
-            xlabel = x.split('/')
-            xlabel = xlabel[0]
-            if xlabel in unknown_words:
-                repartition[unknown_words.index(xlabel)] += 1
-        print('Unknown distribution :  ', [(unknown_words[i], floor(100*repartition[i]/np.sum(repartition))) for i in range(len(repartition))])
-
     def reduceDataset(self, label_size):
         repartition, new_data_list = np.zeros((12), dtype = np.int16), []
         for x in self.data_list:
@@ -88,7 +79,6 @@ class SRCdataset(Dataset):
                     new_data_list.append(x)
                     repartition[10] += 1
         self.data_list = new_data_list
-        self.display()
     
     def display(self):
         repartition = np.zeros((12), dtype = np.int16)
@@ -147,17 +137,22 @@ class SRCdataset(Dataset):
         # get sample
         item_path = self.root_dir + '/' + item_name
         _, new_sample = scwav.read(item_path)
-        new_sample = torch.from_numpy(new_sample)
-
-        # zero pad sample if length is not seq_length
+        
         if len(new_sample) != seq_length:
             padding = seq_length - len(new_sample)
-            new_sample = torch.cat((new_sample, torch.zeros([padding], dtype = torch.short)), 0)
-        new_sample = new_sample.type(torch.FloatTensor)
-        sample = {'audio': new_sample, 'label': label_idx}
+            new_sample = np.concatenate((new_sample, np.zeros(padding, dtype=int)))
+        new_sample = new_sample.astype(float)
+
+        # compute mfccs & first & second order gradient
+        mfccs = mfcc(new_sample, seq_length, n_mfcc=23, n_fft=640, hop_length=320) #n_mfcc x 51
+        grad_mfccs = np.gradient(mfccs, axis = 1)
+        mfccs = np.concatenate((mfccs, grad_mfccs)) #2*n_mfcc x 51
+        mfccs = np.concatenate((mfccs, np.gradient(grad_mfccs, axis = 1))) #3*n_mfcc x 51
+        mfccs = torch.from_numpy(mfccs)
+        mfccs = mfccs.type(torch.FloatTensor)
+
+        sample = {'mfccs': mfccs, 'label': label_idx}
         return sample
-
-
 
 def clear_silence(filename):
     """

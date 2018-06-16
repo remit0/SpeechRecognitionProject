@@ -2,12 +2,10 @@ import torch
 import numpy as np
 from torch.utils.data import Dataset
 from random import randint
-from scipy.io.wavfile import write
-import soundfile as sf
+from scipy.io.wavfile import read, write
 from math import floor
 from os import listdir
 from os.path import isfile, join
-from librosa.feature import mfcc
 # pylint: disable=E1101, W0612
 
 labels = ['yes','no','up','down','left','right','on','off','stop','go','unknown','silence']
@@ -23,16 +21,14 @@ class SRCdataset(Dataset):
         self.txt_file = txt_file
 
         with open(txt_file, 'r') as datalist:
-            # testing and validation use every sample
             if 'training' not in txt_file:
                 self.data_list = [x.strip() for x in datalist.readlines()]
                 self.unknown = []
-            # training needs balanced sample
             else:
                 clear_silence(txt_file)
                 data = [x.strip() for x in datalist.readlines()]
                 data_list, unknown_list = [], []
-                # unknown set balancing
+
                 for x in data:
                     xlabel = x.split('/')
                     xlabel = xlabel[0]
@@ -47,12 +43,10 @@ class SRCdataset(Dataset):
 
                 self.data_list = data_list
                 self.unknown = unknown_list
-                # random generation of 'silence' class
                 self.generateSilenceClass()
 
     def shuffleUnknown(self):
         new_data_list, ucount = [], 0
-        # keep samples from other classes
         for x in self.data_list:
             xlabel = x.split('/')
             xlabel = xlabel[0]
@@ -60,7 +54,6 @@ class SRCdataset(Dataset):
                 new_data_list.append(x)
             else:
                 ucount += 1
-        # randomly select new 'unknown' samples
         for i in range(ucount):
             sample_index = randint(0, len(self.unknown)-1)
             new_data_list.append(self.unknown[sample_index])
@@ -93,7 +86,6 @@ class SRCdataset(Dataset):
         print('class distribution :  ', [(labels[i], repartition[i]) for i in range(12)])
     
     def generateSilenceClass(self):
-        # clears silence in both txt_file and data_list
         clear_silence(self.txt_file)
         self.data_list = [x for x in self.data_list if 'silence' not in x]
 
@@ -106,8 +98,7 @@ class SRCdataset(Dataset):
         for i in range(nsamples):
             # select random noise effect
             selected = noise_list[randint(0, len(noise_list)-1)]
-            #sample= load_wave_file(self.root_dir+'/_background_noise_/'+selected)
-            sample, _ = sf.read(self.root_dir+'/_background_noise_/'+selected)
+            _, sample = read(self.root_dir+'/_background_noise_/'+selected)
             # select random start index over 60s
             start_index = randint(0, len(sample)-16000)
             # copy 1s after start index
@@ -138,25 +129,23 @@ class SRCdataset(Dataset):
 
         # get sample
         item_path = self.root_dir + '/' + item_name
-        #new_sample = load_wave_file(item_path)
-        new_sample, _ = sf.read(item_path)
+        _, new_sample = read(item_path)
+        new_sample = torch.from_numpy(new_sample)
+
+        # zero pad sample if length is not seq_length
         if len(new_sample) != seq_length:
             padding = seq_length - len(new_sample)
-            new_sample = np.concatenate((new_sample, np.zeros(padding, dtype=int)))
-        new_sample = new_sample.astype(float)
-
-        # compute mfccs & first & second order gradient
-        mfccs = mfcc(new_sample, seq_length, n_mfcc=13, n_fft=640, hop_length=320) #n_mfcc x 51
-        grad_mfccs = np.gradient(mfccs, axis = 1)
-        mfccs = np.concatenate((mfccs, grad_mfccs)) #2*n_mfcc x 51
-        mfccs = np.concatenate((mfccs, np.gradient(grad_mfccs, axis = 1))) #3*n_mfcc x 51
-        mfccs = torch.from_numpy(mfccs)
-        mfccs = mfccs.type(torch.FloatTensor)
-
-        sample = {'mfccs': mfccs, 'label': label_idx}
+            new_sample = torch.cat((new_sample, torch.zeros([padding], dtype = torch.short)), 0)
+        new_sample = new_sample.type(torch.FloatTensor)
+        sample = {'audio': new_sample, 'label': label_idx}
         return sample
 
+
+
 def clear_silence(filename):
+    """
+    clear 'silence' occurences in a text file
+    """
     f = open(filename,'r')
     lines = f.readlines()
     f.close()
@@ -165,16 +154,3 @@ def clear_silence(filename):
         if 'silence' not in line:
             f.write(line)
     f.close()
-
-"""
-def load_wave_file(filename):
-    waveFile = wave.open(filename, 'r')
-    length = waveFile.getnframes()
-    sample = np.zeros(length, dtype = int)
-    for i in range(0, length):
-        waveData = waveFile.readframes(1)
-        data = struct.unpack("<h", waveData)
-        sample[i] = int(data[0])
-    waveFile.close()
-    return sample
-"""

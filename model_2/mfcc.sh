@@ -10,6 +10,5 @@ export DATA_PATH=${ROOT_DIR}/Data
 export OUTPUT_PATH=${ROOT_DIR}/results/model2
 
 source ${ROOT_DIR}/venv/project/bin/activate
-python ${SRC_PATH}/mfcc.py -key 1
+python3 ${SRC_PATH}/mfcc.py -key 1
 echo END
-# 1 : lr 0.003 features 512 layers 2 step_size 5

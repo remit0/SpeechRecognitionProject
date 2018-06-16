@@ -1,6 +1,6 @@
 import torch
-import numpy as np
 import torch.nn as nn
+from torch.utils.data import DataLoader
 # pylint: disable=E1101, W0612
 
 class BasicBlock(nn.Module):
@@ -29,24 +29,37 @@ class BasicBlock(nn.Module):
 
         return out
 
-class Network(nn.Module):
+class ResNet(nn.Module):
 
-    def __init__(self, block, num_features = 512, num_layers = 2):
+    def __init__(self, block, mode):
+        self.mode = mode
         self.inplanes = 64
-        super(Network, self).__init__()
+        super(ResNet, self).__init__()
         self.conv1 = nn.Conv1d(1, 64, kernel_size=80, stride=4, padding=38, bias=False) 
         self.bn1 = nn.BatchNorm1d(64)
         self.relu = nn.ReLU(inplace=True)
-
         self.layer1 = self._make_layer(block, 64, 2)
         self.layer2 = self._make_layer(block, 128, 2, stride=2)
         self.layer3 = self._make_layer(block, 256, 2, stride=2)
         self.layer4 = self._make_layer(block, 512, 2, stride=2)
-
         self.fc1 = nn.Linear(512, 512)
-        self.gru = nn.GRU(512, num_features, num_layers = num_layers, bidirectional = True, batch_first = True)
-        self.fc2 = nn.Linear(num_features*2, 12)
-        #self.softmax = nn.Softmax(dim=2)
+
+        if mode == 1:
+            self.backend_conv1 = nn.Sequential(
+            nn.Conv1d(500, 2*500, 5, 2, 0, bias=False),
+            nn.BatchNorm1d(2*500),
+            nn.ReLU(True),
+            nn.MaxPool1d(2, 2),
+            nn.Conv1d(2*500, 4*500, 5, 2, 0, bias=False),
+            nn.BatchNorm1d(4*500),
+            nn.ReLU(True),
+            )
+            self.backend_conv2 = nn.Sequential(
+            nn.Linear(4*500, 500),
+            nn.BatchNorm1d(500),
+            nn.ReLU(True),
+            nn.Linear(500, 12)
+            )
 
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
@@ -83,21 +96,58 @@ class Network(nn.Module):
         x = self.layer3(x)
         x = self.layer4(x)              #batchSize x features(512) x seqLen(500)
 
-        x = torch.transpose(x,1,2)
-        x = x.contiguous()
-        bsize = x.size(0)
-        x = x.view(x.size(0)*x.size(1), -1) #batchSize*seqLen x features
+        if self.backend_conv1 is not None:
+            x = torch.transpose(x,1,2)
+            x = self.backend_conv1(x)
+            x = torch.mean(x, 2)
+            x = self.backend_conv2(x)
+            return x
+        else :
+            x = torch.transpose(x,1,2)
+            x = x.contiguous()
+            x = x.view(x.size(0)*x.size(1), -1) #batchSize*seqLen x features
+            x = self.fc1(x)
+            return x
 
-        x = self.fc1(x)
-        x = x.view(bsize, -1, 512)      #batchSize x seqLen x features
-        x, _ = self.gru(x)              #batchSize x seqLen x num_directions * hidden_size
-        
-        x = self.fc2(x[:, -1, :])
-        #x = x.contiguous()
-        #x = x.view(x.size(0)*x.size(1), -1) #batchSize*seqLen x 2*hidden_size
-        #x = self.fc2(x)                 #batchSize*seqLen x 12
-        #x = x.view(bsize, -1, 12)  #batchSize x seqLen x 12
-        #x = self.softmax(x)             #batchSize x seqLen x 12
-        #x = torch.mean(x, 1)             #batchSize x 12
- 
+
+class GRU(nn.Module):
+
+    def __init__(self, num_features = 512, num_layers = 2):
+        super(GRU, self).__init__()
+        self.gru = nn.GRU(512, num_features, num_layers = num_layers, bidirectional = True, batch_first = True)
+        self.fc2 = nn.Linear(num_features*2, 12)
+
+    def forward(self, x):
+        x = x.view(-1, 500, 512)      #batchSize x seqLen x features
+        x, _ = self.gru(x)              #batchSize x seqLen x 2 * features
+        x = self.fc2(x[:, -1, :])       #batchSize x 2 * features
         return x
+
+class Network(nn.Module):
+    def __init__(self, num_features = 512, num_layers = 2):
+        super(Network, self).__init__()
+        self.resnet = ResNet(BasicBlock, mode=0)
+        self.gru = GRU(num_features=num_features, num_layers=num_layers)
+    
+    def forward(self, x):
+        x = self.resnet(x)
+        x = self.gru(x)
+        return x
+
+
+def accuracy(model, device, dataset, filename, batchsize=2):
+    total, correct = 0, 0
+    model.eval()
+    dataloader = DataLoader(dataset, batch_size = batchsize, drop_last = True)
+
+    with torch.no_grad():
+        for i_batch, batch in enumerate(dataloader):
+            outputs = model(batch['audio'].unsqueeze(1).to(device))
+            _, predicted = torch.max(outputs.data, 1)
+            total += batchsize
+            correct += (predicted == batch['label'].to(device)).sum().item()
+
+    with open(filename, 'a') as f:
+        f.write(str(100 * correct / float(total))+'\n')
+    model.train()
+    return(100*correct/float(total))

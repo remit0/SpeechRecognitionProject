@@ -84,7 +84,7 @@ class Network(nn.Module):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)              #batchSize x features(512) x seqLen(500)
-
+                                        #temporal convolution layer on seqLen
         x = torch.transpose(x,1,2)
         x = x.contiguous()
         bsize = x.size(0)

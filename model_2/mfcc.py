@@ -1,7 +1,8 @@
+import time
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import ExponentialLR
 import argparse
 import os
 # pylint: disable=E1101, W0612
@@ -20,9 +21,9 @@ parser.add_argument('-lr', '--learning_rate', type = float, help='LEARNING_RATE'
 parser.add_argument('-ft', '--features', type = int, help='NUM_FEATURES')
 parser.add_argument('-nl', '--layers', type = int, help='NUM_LAYERS')
 parser.add_argument('-key', '--keyName', type = str, help='unique key')
-parser.add_argument('-sz', '--step_size', type = int, help='lr decay')
+parser.add_argument('-lda', '--lambd', type = int, help='lr decay')
 args = parser.parse_args()
-
+start = time.time()
 source = '/vol/gpudata/rar2417/src/model2'
 if args.source_path is not None:
     source = args.source_path
@@ -40,12 +41,12 @@ from model_mfcc import Network, accuracy
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.set_default_tensor_type('torch.FloatTensor')
-
+print(device)
 # Hyperparams
 NUM_EPOCHS = 70
 if args.epoch is not None:
     NUM_EPOCHS = args.epoch
-BATCH_SIZE = 36
+BATCH_SIZE = 20
 if args.batch_size is not None:
     BATCH_SIZE = args.batch_size
 LEARNING_RATE = 0.003
@@ -60,9 +61,9 @@ if args.layers is not None:
 KEY = ''
 if args.keyName is not None:
     KEY = args.keyName
-STEP_SIZE = 5
-if args.step_size is not None:
-    STEP_SIZE = args.step_size
+LAMBDA = 0.87
+if args.lambd is not None:
+    LAMBDA = args.lambd
 
 # Model & Dataset
 model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS).to(device)
@@ -75,12 +76,13 @@ for params in model.parameters():
 # Loss and optimizer
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
-scheduler = StepLR(optimizer, step_size=STEP_SIZE, gamma=0.5)
+scheduler = ExponentialLR(optimizer, LAMBDA)
 epoch, estop, maxval, maxind = 0, False, 0, 0
 
 while epoch < NUM_EPOCHS and not estop:
     dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-    scheduler.step()
+    if epoch > 4:
+        scheduler.step()
     for i_batch, batch in enumerate(dataloader):
         # Forward
         optimizer.zero_grad()
@@ -96,8 +98,8 @@ while epoch < NUM_EPOCHS and not estop:
             myfile.write(str(loss.item())+'\n')
 
     # Save model, accuracy at each epoch
-    newval = accuracy(model, device, valset, output_path + '/accVal_'+KEY+'.txt', 4)
-    accuracy(model, device, dataset, output_path + '/accTrain_'+KEY+'.txt', 4)
+    newval = accuracy(model, device, valset, output_path + '/val_'+KEY+'.txt', 4)
+    accuracy(model, device, dataset, output_path + '/train_'+KEY+'.txt', 4)
     
     # Early stopping
     if newval > maxval:
@@ -110,3 +112,13 @@ while epoch < NUM_EPOCHS and not estop:
     dataset.shuffleUnknown()
     dataset.generateSilenceClass()
     epoch += 1
+
+print('time  ', time.time()-start)
+print('epochs  ', epoch)
+print('learning_rate  ', LEARNING_RATE)
+print('lr_decay  ', LAMBDA)
+print('batch_size  ', BATCH_SIZE)
+print('num_layers  ', NUM_LAYERS)
+print('features  ', NUM_FEATURES)
+print('key  ', KEY)
+
