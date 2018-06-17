@@ -2,7 +2,8 @@ import torch
 import numpy as np
 from torch.utils.data import Dataset
 from random import randint
-import scipy.io.wavfile as scwav
+from scipy.io.wavfile import write, read
+from librosa import stft, power_to_db
 from math import floor
 from os import listdir
 from os.path import isfile, join
@@ -105,14 +106,15 @@ class SRCdataset(Dataset):
         for i in range(nsamples):
             # select random noise effect
             selected = noise_list[randint(0, len(noise_list)-1)]
-            _, sample = scwav.read(self.root_dir+'/_background_noise_/'+selected)
+            #sample= load_wave_file(self.root_dir+'/_background_noise_/'+selected)
+            _, sample = read(self.root_dir+'/_background_noise_/'+selected)
             # select random start index over 60s
             start_index = randint(0, len(sample)-16000)
             # copy 1s after start index
             new_sample = sample[start_index:start_index+16000]
             new_sample = np.rint(new_sample).astype('int16')
             # write file
-            scwav.write(self.root_dir+'/silence/silent'+str(i)+'.wav', 16000, new_sample)
+            write(self.root_dir+'/silence/silent'+str(i)+'.wav', 16000, new_sample)
         
         # appends new samples in both txt_file and data_list
         with open(self.txt_file, 'a') as myfile:
@@ -136,28 +138,23 @@ class SRCdataset(Dataset):
 
         # get sample
         item_path = self.root_dir + '/' + item_name
-        _, new_sample = scwav.read(item_path)
-        
+        #new_sample = load_wave_file(item_path)
+        _, new_sample = read(item_path)
         if len(new_sample) != seq_length:
             padding = seq_length - len(new_sample)
             new_sample = np.concatenate((new_sample, np.zeros(padding, dtype=int)))
         new_sample = new_sample.astype(float)
 
-        # compute mfccs & first & second order gradient
-        mfccs = mfcc(new_sample, seq_length, n_mfcc=23, n_fft=640, hop_length=320) #n_mfcc x 51
-        grad_mfccs = np.gradient(mfccs, axis = 1)
-        mfccs = np.concatenate((mfccs, grad_mfccs)) #2*n_mfcc x 51
-        mfccs = np.concatenate((mfccs, np.gradient(grad_mfccs, axis = 1))) #3*n_mfcc x 51
-        mfccs = torch.from_numpy(mfccs)
-        mfccs = mfccs.type(torch.FloatTensor)
-
-        sample = {'mfccs': mfccs, 'label': label_idx}
+        # compute log spectrogram
+        spectrogram = np.abs(stft(new_sample, n_fft=640, hop_length=320))
+        spectrogram = power_to_db(spectrogram**2, top_db=200.0)
+        spectrogram = torch.from_numpy(spectrogram)
+        spectrogram = spectrogram.type(torch.FloatTensor)
+        
+        sample = {'spec': spectrogram, 'label': label_idx}
         return sample
 
 def clear_silence(filename):
-    """
-    clear 'silence' occurences in a text file
-    """
     f = open(filename,'r')
     lines = f.readlines()
     f.close()

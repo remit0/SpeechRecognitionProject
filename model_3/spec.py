@@ -31,8 +31,8 @@ if args.output_path is not None:
     output_path = args.output_path
 
 os.chdir(source)
-from dataset_mfcc import SRCdataset
-from model_mfcc import Network, accuracy
+from dataset_spec import SRCdataset
+from model_spec import Network, accuracy
 
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -82,7 +82,7 @@ while epoch < NUM_EPOCHS and not estop:
     for i_batch, batch in enumerate(dataloader):
         # Forward
         optimizer.zero_grad()
-        outputs = model(batch['mfccs'].to(device))
+        outputs = model(batch['spec'].to(device))
         loss = criterion(outputs, batch['label'].to(device))
 
         # Backward and optimize
@@ -101,8 +101,8 @@ while epoch < NUM_EPOCHS and not estop:
     if newval > maxval:
         maxval = newval
         maxind = epoch
-        torch.save(model.state_dict(), output_path+'/models/mfcc_'+KEY+'.ckpt')
-    if epoch > maxind + 9:
+        torch.save(model.state_dict(), output_path+'/models/spec_'+KEY+'.ckpt')
+    if epoch > maxind + 5:
         estop = True
     
     dataset.shuffleUnknown()

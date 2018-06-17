@@ -7,10 +7,6 @@ from dataset_mfcc import SRCdataset
 from model_mfcc import Network, accuracy
 # pylint: disable=E1101, W0612
 
-"""
-extract MFCCs, derivatives, train BGRU // other things stay the same 40ms window 20s hop size 
-"""
-
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.set_default_tensor_type('torch.FloatTensor')

@@ -6,9 +6,9 @@ from torch.utils.data import DataLoader
 
 class Network(nn.Module):
 
-    def __init__(self, num_features = 69, num_layers = 2):
+    def __init__(self, num_features =512, num_layers = 2):
         super(Network, self).__init__()
-        self.gru = nn.GRU(69, num_features, num_layers = num_layers, bidirectional = True, batch_first = True)
+        self.gru = nn.GRU(321, num_features, num_layers = num_layers, bidirectional = True, batch_first = True)
         self.fc = nn.Linear(num_features*2, 12)
 
     def forward(self, x):
@@ -24,7 +24,7 @@ def accuracy(model, device, dataset, filename, batchsize=2):
 
     with torch.no_grad():
         for i_batch, batch in enumerate(dataloader):
-            outputs = model(batch['mfccs'].to(device))
+            outputs = model(batch['spec'].to(device))
             _, predicted = torch.max(outputs.data, 1)
             total += batchsize
             correct += (predicted == batch['label'].to(device)).sum().item()
