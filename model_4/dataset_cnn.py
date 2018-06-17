@@ -3,10 +3,10 @@ import numpy as np
 from torch.utils.data import Dataset
 from random import randint
 from scipy.io.wavfile import write, read
-from librosa import stft, power_to_db
 from math import floor
 from os import listdir
 from os.path import isfile, join
+from scipy.signal import spectrogram
 # pylint: disable=E1101, W0612
 
 labels = ['yes','no','up','down','left','right','on','off','stop','go','unknown','silence']
@@ -145,12 +145,12 @@ class SRCdataset(Dataset):
         new_sample = new_sample.astype(float)
 
         # compute log spectrogram
-        spectrogram = np.abs(stft(new_sample, n_fft=640, hop_length=320))
-        spectrogram = power_to_db(spectrogram**2, top_db=200.0)
-        spectrogram = torch.from_numpy(spectrogram)
-        spectrogram = spectrogram.type(torch.FloatTensor)
-        
-        sample = {'spec': spectrogram, 'label': label_idx}
+        _, _, spec = spectrogram(new_sample, fs = seq_length, window = 'hann', nperseg = 640, noverlap = 320, detrend = False)
+        spec = np.log(spec.astype(np.float32) + 1e-10)
+        spec = torch.from_numpy(spec)
+        spec = spec.type(torch.FloatTensor)
+
+        sample = {'spec': spec, 'label': label_idx}
         return sample
 
 def clear_silence(filename):
