@@ -93,6 +93,7 @@ class ResNet(nn.Module):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)              #batchSize x features(512) x seqLen(500)
+        print(x.size())
 
         if self.mode == 1:
             x = torch.transpose(x,1,2)

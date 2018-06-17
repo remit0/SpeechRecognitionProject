@@ -16,7 +16,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.set_default_tensor_type('torch.FloatTensor')
 
 # Hyperparams
-NUM_EPOCHS = 15
+NUM_EPOCHS = 30
 BATCH_SIZE = 20
 LEARNING_RATE = 0.0003
 NUM_FEATURES = 256
@@ -30,7 +30,6 @@ output_path = '../Data/results'
 # Model & Dataset
 model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS).to(device)
 dataset = SRCdataset(data_path + '/training_list.txt', data_path + '/audio')
-dataset.display()
 valset = SRCdataset(data_path + '/validation_list.txt', data_path + '/audio')
 
 for params in model.parameters():
@@ -74,7 +73,7 @@ while epoch < NUM_EPOCHS and not estop:
         maxval = newval
         maxind = epoch
         torch.save(model.state_dict(), output_path+'/models/mfcc_'+KEY+'.ckpt')
-    if epoch > maxind + 9:
+    if epoch > maxind + 6:
         estop = True
     
     dataset.shuffleUnknown()

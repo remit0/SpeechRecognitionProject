@@ -2,8 +2,7 @@ import torch
 import numpy as np
 from torch.utils.data import Dataset
 from random import randint
-from scipy.io.wavfile import write
-import soundfile as sf
+from scipy.io.wavfile import write, read
 from math import floor
 from os import listdir
 from os.path import isfile, join
@@ -107,7 +106,7 @@ class SRCdataset(Dataset):
             # select random noise effect
             selected = noise_list[randint(0, len(noise_list)-1)]
             #sample= load_wave_file(self.root_dir+'/_background_noise_/'+selected)
-            sample, _ = sf.read(self.root_dir+'/_background_noise_/'+selected)
+            _, sample = read(self.root_dir+'/_background_noise_/'+selected)
             # select random start index over 60s
             start_index = randint(0, len(sample)-16000)
             # copy 1s after start index
@@ -139,7 +138,7 @@ class SRCdataset(Dataset):
         # get sample
         item_path = self.root_dir + '/' + item_name
         #new_sample = load_wave_file(item_path)
-        new_sample, _ = sf.read(item_path)
+        _, new_sample = read(item_path)
         if len(new_sample) != seq_length:
             padding = seq_length - len(new_sample)
             new_sample = np.concatenate((new_sample, np.zeros(padding, dtype=int)))
