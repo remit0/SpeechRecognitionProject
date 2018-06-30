@@ -6,9 +6,18 @@ from dataset_rsb import SRCdataset
 from model_rsb import Network, ResNet, BasicBlock, accuracy
 # pylint: disable=E1101, W0612
 
+"""
+full model in one go
+resnet + dilated convolution -> same training method
+speech recognition kernels forum
+testing set accuracy
+try only for resnet different kernels of 1st convolution 10 / 20 / 1 ms stride 2 8 16 ? 
+kernel size inside resnet blocks
+"""
+
 data_path = '../Data/train'
 output_path = '../Data/results'
-MODEL = output_path + '/models/BGRU_debug.ckpt'
+MODEL = None  #output_path + '/models/BGRU_debug.ckpt'
 
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -33,6 +42,7 @@ if MODE == 1:
     model = ResNet(BasicBlock, MODE).to(device)
 if MODE == 2:
     model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS).to(device)
+    """
     model_dict = model.state_dict()
     pretrained_dict = torch.load(MODEL)
     pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
@@ -41,10 +51,9 @@ if MODE == 2:
     for name, param in model.named_parameters():
         if 'gru' in name:
             param.requires_grad = True
-        if 'fc2' in name:
-            param.requires_grad = True
-        else:
+        if 'resnet' in name:
             param.requires_grad = False
+    """
 if MODE == 3:
     model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS).to(device)
     model.load_state_dict(torch.load(MODEL))

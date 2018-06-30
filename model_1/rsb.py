@@ -88,9 +88,7 @@ if MODE == 2:
     for name, param in model.named_parameters():
         if 'gru' in name:
             param.requires_grad = True
-        if 'fc2' in name:
-            param.requires_grad = True
-        else:
+        if 'resnet' in name:
             param.requires_grad = False
 if MODE == 3:
     model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS).to(device)

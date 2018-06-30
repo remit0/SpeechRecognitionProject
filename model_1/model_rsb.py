@@ -93,21 +93,19 @@ class ResNet(nn.Module):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)              #batchSize x features(512) x seqLen(500)
-        print(x.size())
+
+        x = torch.transpose(x,1,2)
+        x = x.contiguous()
+        x = x.view(x.size(0)*x.size(1), -1) #batchSize*seqLen x features
+        x = self.fc1(x)
 
         if self.mode == 1:
-            x = torch.transpose(x,1,2)
+            x = x.view(-1, 500, 512) 
             x = self.backend_conv1(x)
             x = torch.mean(x, 2)
             x = self.backend_conv2(x)
-            return x
-        else :
-            x = torch.transpose(x,1,2)
-            x = x.contiguous()
-            x = x.view(x.size(0)*x.size(1), -1) #batchSize*seqLen x features
-            x = self.fc1(x)
-            return x
 
+        return x
 
 class GRU(nn.Module):
 
