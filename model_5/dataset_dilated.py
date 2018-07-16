@@ -2,11 +2,10 @@ import torch
 import numpy as np
 from torch.utils.data import Dataset
 from random import randint
-from scipy.io.wavfile import write, read
+from scipy.io.wavfile import read, write
 from math import floor
 from os import listdir
 from os.path import isfile, join
-from librosa.feature import mfcc
 # pylint: disable=E1101, W0612
 
 labels = ['yes','no','up','down','left','right','on','off','stop','go','unknown','silence']
@@ -27,17 +26,15 @@ class SRCdataset(Dataset):
         self.silence = noise_list
 
         with open(txt_file, 'r') as datalist:
-            # testing and validation use every sample
             if 'training' not in txt_file:
                 self.train = False
                 self.data_list = [x.strip() for x in datalist.readlines()]
                 self.unknown = []
-            # training needs balanced sample
             else:
                 self.train = True
                 data = [x.strip() for x in datalist.readlines()]
                 data_list, unknown_list = [], []
-                # unknown set balancing
+
                 for x in data:
                     xlabel = x.split('/')
                     xlabel = xlabel[0]
@@ -54,10 +51,8 @@ class SRCdataset(Dataset):
                 self.data_list = data_list
                 self.unknown = unknown_list
 
-
     def shuffleUnknown(self):
         new_data_list, ucount = [], 0
-        # keep samples from other classes
         for x in self.data_list:
             xlabel = x.split('/')
             xlabel = xlabel[0]
@@ -65,7 +60,6 @@ class SRCdataset(Dataset):
                 new_data_list.append(x)
             else:
                 ucount += 1
-        # randomly select new 'unknown' samples
         for i in range(ucount):
             sample_index = randint(0, len(self.unknown)-1)
             new_data_list.append(self.unknown[sample_index])
@@ -112,39 +106,25 @@ class SRCdataset(Dataset):
 
         try:
             if label_idx == 11 and self.train:
-                new_sample =  self.draw_silence_sample()
-                new_sample = new_sample.astype(float)
+                sample = {'audio': self.draw_silence_sample(), 'label': 11}
             else:
-                # get sample
                 item_path = self.root_dir + '/' + item_name
                 _, new_sample = read(item_path)
+                new_sample = torch.from_numpy(new_sample)
+                # zero pad sample if length is not seq_length
                 if len(new_sample) != seq_length:
                     padding = seq_length - len(new_sample)
-                    new_sample = np.concatenate((new_sample, np.zeros(padding, dtype=int)))
-                new_sample = new_sample.astype(float)
-
-            # compute mfccs & first & second order gradient
-            mfccs = mfcc(new_sample, seq_length, n_mfcc=13, n_fft=640, hop_length=320) #n_mfcc x 51
-            grad_mfccs = np.gradient(mfccs, axis = 1)
-            mfccs = np.concatenate((mfccs, grad_mfccs)) #2*n_mfcc x 51
-            mfccs = np.concatenate((mfccs, np.gradient(grad_mfccs, axis = 1))) #3*n_mfcc x 51
-            mfccs = torch.from_numpy(mfccs)
-            mfccs = mfccs.type(torch.FloatTensor)
-            sample = {'mfccs': mfccs, 'label': label_idx}
+                    new_sample = torch.cat((new_sample, torch.zeros([padding], dtype = torch.short)), 0)
+                new_sample = new_sample.type(torch.FloatTensor)
+                sample = {'audio': new_sample, 'label': label_idx}
             return sample
-
         except:
             print("bugged item:", item_name)
             print("label", label_idx, label)
             new_sample = np.zeros(16000)
-            new_sample = new_sample.astype(float)
-            mfccs = mfcc(new_sample, seq_length, n_mfcc=13, n_fft=640, hop_length=320) #n_mfcc x 51
-            grad_mfccs = np.gradient(mfccs, axis = 1)
-            mfccs = np.concatenate((mfccs, grad_mfccs)) #2*n_mfcc x 51
-            mfccs = np.concatenate((mfccs, np.gradient(grad_mfccs, axis = 1))) #3*n_mfcc x 51
-            mfccs = torch.from_numpy(mfccs)
-            mfccs = mfccs.type(torch.FloatTensor)
-            return {'mfccs': mfccs, 'label': 11}
+            new_sample = torch.from_numpy(new_sample)
+            new_sample = new_sample.type(torch.FloatTensor)
+            return {'audio': new_sample, 'label': 11}
 
     def draw_silence_sample(self):
         # select random noise effect

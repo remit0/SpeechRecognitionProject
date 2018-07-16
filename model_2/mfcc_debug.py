@@ -27,6 +27,7 @@ output_path = '../Data/results'
 model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS).to(device)
 dataset = SRCdataset(data_path + '/training_list.txt', data_path + '/audio')
 valset = SRCdataset(data_path + '/validation_list.txt', data_path + '/audio')
+dataset.display()
 
 for params in model.parameters():
     params.requires_grad = True

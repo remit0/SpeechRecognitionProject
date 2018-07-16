@@ -17,7 +17,7 @@ parser.add_argument('-lr', '--learning_rate', type = float, help='LEARNING_RATE'
 parser.add_argument('-ft', '--features', type = int, help='NUM_FEATURES')
 parser.add_argument('-nl', '--layers', type = int, help='NUM_LAYERS')
 parser.add_argument('-key', '--keyName', type = str, help='unique key')
-parser.add_argument('-lda', '--lambd', type = int, help='lr decay')
+parser.add_argument('-lda', '--lambd', type = float, help='lr decay')
 args = parser.parse_args()
 start = time.time()
 source = '/vol/gpudata/rar2417/src/model2'
@@ -37,9 +37,9 @@ from model_mfcc import Network, accuracy
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.set_default_tensor_type('torch.FloatTensor')
-print(device)
+
 # Hyperparams
-NUM_EPOCHS = 70
+NUM_EPOCHS = 50
 if args.epoch is not None:
     NUM_EPOCHS = args.epoch
 BATCH_SIZE = 20
@@ -62,10 +62,12 @@ if args.lambd is not None:
     LAMBDA = args.lambd
 
 # Model & Dataset
-model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS).to(device)
 dataset = SRCdataset(data_path + '/training_list.txt', data_path + '/audio')
 valset = SRCdataset(data_path + '/validation_list.txt', data_path + '/audio')
+testset = SRCdataset(data_path + '/testing_list.txt', data_path + '/audio')
+dataset.display()
 
+model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS).to(device)
 for params in model.parameters():
     params.requires_grad = True
 
@@ -76,7 +78,7 @@ scheduler = ExponentialLR(optimizer, LAMBDA)
 epoch, estop, maxval, maxind = 0, False, 0, 0
 
 while epoch < NUM_EPOCHS and not estop:
-    dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+    dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=False)
     if epoch > 4:
         scheduler.step()
     for i_batch, batch in enumerate(dataloader):
@@ -96,25 +98,22 @@ while epoch < NUM_EPOCHS and not estop:
     # Save model, accuracy at each epoch
     newval = accuracy(model, device, valset, output_path + '/val_'+KEY+'.txt', 4)
     accuracy(model, device, dataset, output_path + '/train_'+KEY+'.txt', 4)
-    
+    accuracy(model, device, testset, output_path + '/test_'+KEY+'.txt', 4)
     # Early stopping
     if newval > maxval:
         maxval = newval
         maxind = epoch
         torch.save(model.state_dict(), output_path+'/models/mfcc_'+KEY+'.ckpt')
-    if epoch > maxind + 9:
+    if epoch > maxind + 4:
         estop = True
     
     dataset.shuffleUnknown()
-    dataset.generateSilenceClass()
     epoch += 1
 
+print('key  ', KEY)
 print('time  ', time.time()-start)
 print('epochs  ', epoch)
 print('learning_rate  ', LEARNING_RATE)
 print('lr_decay  ', LAMBDA)
 print('batch_size  ', BATCH_SIZE)
 print('num_layers  ', NUM_LAYERS)
-print('features  ', NUM_FEATURES)
-print('key  ', KEY)
-

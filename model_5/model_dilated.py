@@ -35,11 +35,7 @@ class ResNet(nn.Module):
         self.mode = mode
         self.inplanes = 64
         super(ResNet, self).__init__()
-        #self.conv1 = nn.Conv1d(1, 64, kernel_size=80, stride=4, padding=38, bias=False)
-        #self.conv1 = nn.Conv1d(1, 64, kernel_size=16, stride=4, padding=38, bias=False)
-        self.conv1 = nn.Conv1d(1, 64, kernel_size=160, stride=4, padding=38, bias=False)  
-        #self.conv1 = nn.Conv1d(1, 64, kernel_size=320, stride=4, padding=38, bias=False)
-        #self.conv1 = nn.Conv1d(1, 64, kernel_size=8, stride=4, padding=38, bias=False)
+        self.conv1 = nn.Conv1d(1, 64, kernel_size=80, stride=4, padding=38, bias=False) 
         self.bn1 = nn.BatchNorm1d(64)
         self.relu = nn.ReLU(inplace=True)
         self.layer1 = self._make_layer(block, 64, 2)
@@ -47,21 +43,20 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, 2, stride=2)
         self.layer4 = self._make_layer(block, 512, 2, stride=2)
         self.fc1 = nn.Linear(512, 512)
-        self.dim = 498
         self.backend_conv1 = nn.Sequential(
-            nn.Conv1d(self.dim, 2*self.dim, 5, 2, 0, bias=False),
-            nn.BatchNorm1d(2*self.dim),
+            nn.Conv1d(500, 2*500, 5, 2, 0, bias=False),
+            nn.BatchNorm1d(2*500),
             nn.ReLU(True),
             nn.MaxPool1d(2, 2),
-            nn.Conv1d(2*self.dim, 4*self.dim, 5, 2, 0, bias=False),
-            nn.BatchNorm1d(4*self.dim),
+            nn.Conv1d(2*500, 4*500, 5, 2, 0, bias=False),
+            nn.BatchNorm1d(4*500),
             nn.ReLU(True),
             )
         self.backend_conv2 = nn.Sequential(
-            nn.Linear(4*self.dim, self.dim),
-            nn.BatchNorm1d(self.dim),
+            nn.Linear(4*500, 500),
+            nn.BatchNorm1d(500),
             nn.ReLU(True),
-            nn.Linear(self.dim, 12)
+            nn.Linear(500, 12)
             )
 
         for m in self.modules():
@@ -101,43 +96,46 @@ class ResNet(nn.Module):
 
         x = torch.transpose(x,1,2)
         x = x.contiguous()
-        bs = x.size(0)
-        sl = x.size(1)
-        x = x.view(bs*sl, -1) #batchSize*seqLen x features
+        x = x.view(x.size(0)*x.size(1), -1) #batchSize*seqLen x features
         x = self.fc1(x)
 
         if self.mode == 1:
-            x = x.view(bs, sl, 512) 
+            x = x.view(-1, 500, 512) 
             x = self.backend_conv1(x)
             x = torch.mean(x, 2)
             x = self.backend_conv2(x)
-        
-        x = x.view(bs, sl, 512)
+
         return x
 
-class GRU(nn.Module):
+class Dilation(nn.Module):
 
-    def __init__(self, num_features = 512, num_layers = 2):
-        super(GRU, self).__init__()
-        self.gru = nn.GRU(512, num_features, num_layers = num_layers, bidirectional = True, batch_first = True)
-        self.fc2 = nn.Linear(num_features*2, 12)
+    def __init__(self):
+        super(Dilation, self).__init__()
+        self.conv = nn.Conv1d(512, 1, 10, dilation=10)
+        self.bn = nn.BatchNorm1d(1)                        
+        self.relu = nn.ReLU() 
+        self.fc2 = nn.Linear(410, 12)
 
     def forward(self, x):
-        x, _ = self.gru(x)              #batchSize x seqLen x 2 * features
-        x = self.fc2(x[:, -1, :])       #batchSize x 2 * features
+        x = x.view(-1, 512, 500)      
+        x = self.conv(x)
+        x = self.bn(x)
+        x = self.relu(x)
+        print(x.size())
+        x = self.fc2(x[:, -1, :])
         return x
 
 class Network(nn.Module):
-    def __init__(self, num_features = 512, num_layers = 2, mode = 0):
+    def __init__(self, mode = 0):
         super(Network, self).__init__()
         self.mode = mode
         self.resnet = ResNet(BasicBlock, mode = mode)
-        self.gru = GRU(num_features=num_features, num_layers=num_layers)
+        self.dilation = Dilation()
     
     def forward(self, x):
         x = self.resnet(x)
         if self.mode != 1:
-            x = self.gru(x)
+            x = self.dilation(x)
         return x
 
 

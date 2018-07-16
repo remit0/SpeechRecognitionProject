@@ -14,9 +14,10 @@ parser.add_argument('-e', '--epoch', type = int, help='NUM_EPOCHS')
 parser.add_argument('-b', '--batch_size', type = int, help='BATCH_SIZE')
 parser.add_argument('-lr', '--learning_rate', type = float, help='LEARNING_RATE')
 parser.add_argument('-key', '--keyName', type = str, help='unique key')
-parser.add_argument('-lda', '--lambd', type = int, help='lr decay')
+parser.add_argument('-ld', '--lambd', type = float, help='lr decay')
 args = parser.parse_args()
 start = time.time()
+
 source = '/vol/gpudata/rar2417/src/model4'
 if args.source_path is not None:
     source = args.source_path
@@ -53,10 +54,12 @@ if args.lambd is not None:
     LAMBDA = args.lambd
 
 # Model & Dataset
-model = Network().to(device)
 dataset = SRCdataset(data_path + '/training_list.txt', data_path + '/audio')
 valset = SRCdataset(data_path + '/validation_list.txt', data_path + '/audio')
+testset = SRCdataset(data_path + '/testing_list.txt', data_path + '/audio')
+dataset.display()
 
+model = Network().to(device)
 for params in model.parameters():
     params.requires_grad = True
 
@@ -87,22 +90,23 @@ while epoch < NUM_EPOCHS and not estop:
     # Save model, accuracy at each epoch
     newval = accuracy(model, device, valset, output_path + '/val_'+KEY+'.txt', 4)
     accuracy(model, device, dataset, output_path + '/train_'+KEY+'.txt', 4)
-    
+    accuracy(model, device, testset, output_path + '/test_'+KEY+'.txt', 4)
+
     # Early stopping
     if newval > maxval:
         maxval = newval
         maxind = epoch
         torch.save(model.state_dict(), output_path+'/models/spec_'+KEY+'.ckpt')
-    if epoch > maxind + 5:
-        estop = True
     
+    if epoch > maxind + 4:
+        estop = True
     dataset.shuffleUnknown()
-    dataset.generateSilenceClass()
     epoch += 1
 
+print('key  ', KEY)
 print('time  ', time.time()-start)
 print('epochs  ', epoch)
 print('learning_rate  ', LEARNING_RATE)
 print('lr_decay  ', LAMBDA)
 print('batch_size  ', BATCH_SIZE)
-print('key  ', KEY)
+

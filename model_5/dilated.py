@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import ExponentialLR
 import argparse
 import os
+
 # pylint: disable=E1101, W0612
 
 parser = argparse.ArgumentParser()
@@ -16,23 +17,21 @@ parser.add_argument('-mdl', '--model', type = str, help='path to training save')
 parser.add_argument('-e', '--epoch', type = int, help='NUM_EPOCHS')
 parser.add_argument('-b', '--batch_size', type = int, help='BATCH_SIZE')
 parser.add_argument('-lr', '--learning_rate', type = float, help='LEARNING_RATE')
-parser.add_argument('-ft', '--features', type = int, help='NUM_FEATURES')
-parser.add_argument('-nl', '--layers', type = int, help='NUM_LAYERS')
 parser.add_argument('-md', '--mode', type = int, help='1, 2 or 3')
 parser.add_argument('-ld', '--lamb', type = float, help='decay')
-parser.add_argument('-wt', '--wait', type = int, help='WAIT')
+parser.add_argument('-wt', '--wait', type = int, help='wait')
 args = parser.parse_args()
 
-source = '/vol/gpudata/rar2417/src/model1'
+source = '/vol/gpudata/rar2417/src/model5'
 if args.source_path is not None:
     source = args.source_path
 data_path = '/vol/gpudata/rar2417/Data'
 if args.data_path is not None:
     data_path = args.data_path
-output_path = '/vol/gpudata/rar2417/results/model1'
+output_path = '/vol/gpudata/rar2417/results/model5'
 if args.output_path is not None:
     output_path = args.output_path
-MODEL = output_path + '/models/model_save_ResNet_1.ckpt'
+MODEL = output_path + '/models/ResNet_1.ckpt'
 if args.model is not None:
     MODEL = args.model
 KEY = ''
@@ -40,8 +39,8 @@ if args.filekey is not None:
     KEY = args.filekey
 
 os.chdir(source)
-from dataset_rsb import SRCdataset
-from model_rsb import Network, ResNet, BasicBlock, accuracy
+from dataset_dilated import SRCdataset
+from model_dilated import Network, accuracy
 
 # Device configuration
 start = time.time()
@@ -58,12 +57,6 @@ if args.batch_size is not None:
 LEARNING_RATE = 0.003
 if args.learning_rate is not None:
     LEARNING_RATE = args.learning_rate
-NUM_FEATURES = 512
-if args.features is not None:
-    NUM_FEATURES = args.features
-NUM_LAYERS = 2
-if args.layers is not None:
-    NUM_LAYERS = args.layers
 MODE = 1
 if args.mode is not None:
     MODE = args.mode
@@ -81,22 +74,25 @@ testset = SRCdataset(data_path + '/testing_list.txt', data_path + '/audio')
 dataset.display()
 
 if MODE == 1:
-    model = Network(num_features = NUM_FEATURES, num_layers = NUM_LAYERS, mode=MODE).to(device)
+    model = Network(mode=MODE).to(device)
+
 if MODE == 2:
-    model = Network(num_features = NUM_FEATURES, num_layers = NUM_LAYERS).to(device)
+    model = Network().to(device)
     model.load_state_dict(torch.load(MODEL))
     for name, param in model.named_parameters():
-        if 'gru' in name:
+        if 'dilation' in name:
             param.requires_grad = True
         if 'resnet' in name:
             param.requires_grad = False
+
 if MODE == 3:
-    model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS).to(device)
+    model = Network().to(device)
     model.load_state_dict(torch.load(MODEL))
     for params in model.parameters():
         params.requires_grad = True
+
 if MODE == 4:
-    model = Network(num_features=NUM_FEATURES, num_layers = NUM_LAYERS).to(device)
+    model = Network().to(device)
     for params in model.parameters():
         params.requires_grad = True
 
@@ -131,17 +127,17 @@ while epoch < NUM_EPOCHS and not estop:
     newval = accuracy(model, device, valset, output_path + '/val_'+KEY+'.txt', 4)
     accuracy(model, device, dataset, output_path + '/train_'+KEY+'.txt', 4)
     accuracy(model, device, testset, output_path + '/test_'+KEY+'.txt', 4)
-
+    
     # Early stopping
     if newval > maxval:
         maxval = newval
         maxind = epoch
         if MODE == 1:
-            torch.save(model.state_dict(), output_path + '/models/ResNet_'+KEY+'.ckpt')
+            torch.save(model.state_dict(), output_path + '/models/ResNetd_'+KEY+'.ckpt')
         if MODE == 2:
-            torch.save(model.state_dict(), output_path +'/models/BGRU_'+KEY+'.ckpt')
+            torch.save(model.state_dict(), output_path +'/models/Conv_'+KEY+'.ckpt')
         if MODE == 3:
-            torch.save(model.state_dict(), output_path +'/models/final_'+KEY+'.ckpt')
+            torch.save(model.state_dict(), output_path +'/models/finald_'+KEY+'.ckpt')
 
     if epoch > maxind + 4:
         estop = True
@@ -153,7 +149,5 @@ print('time  ', time.time()-start)
 print('epochs  ', epoch)
 print('learning_rate  ', LEARNING_RATE)
 print('lr_decay  ', LAMBDA)
-print('freeze  ', WAIT)
-print('batch_size  ', BATCH_SIZE)
-print('num_layers  ', NUM_LAYERS)
-print('features  ', NUM_FEATURES)
+print('wait  ', WAIT)
+print('mode  ', MODE)

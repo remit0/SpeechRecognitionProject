@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import ExponentialLR
-from dataset_rsb import SRCdataset
-from model_rsb import Network, accuracy
+from dataset_dilated import SRCdataset
+from model_dilated import Network, accuracy
 # pylint: disable=E1101, W0612
 
 data_path = '../Data/train'
@@ -26,30 +26,27 @@ LAMBDA = 0.87
 
 # Model & Dataset
 dataset = SRCdataset(data_path + '/training_list.txt', data_path + '/audio')
-valset = SRCdataset(data_path + '/validation_list.txt', data_path + '/audio')
+dataset.reduceDataset(2)
+#valset = SRCdataset(data_path + '/validation_list.txt', data_path + '/audio')
 dataset.display()
-valset.display()
 
 if MODE == 1:
-    model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS, mode=MODE).to(device)
+    model = Network(mode=MODE).to(device)
 if MODE == 2:
-    model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS).to(device)
+    model = Network().to(device)
     model.load_state_dict(torch.load(MODEL))
     for name, param in model.named_parameters():
-        if 'gru' in name:
+        if 'dilation' in name:
             param.requires_grad = True
         if 'resnet' in name:
             param.requires_grad = False
-    for name, param in model.named_parameters():
-        if param.requires_grad:
-            print(name)
 if MODE == 3:
-    model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS).to(device)
+    model = Network().to(device)
     model.load_state_dict(torch.load(MODEL))
     for params in model.parameters():
         params.requires_grad = True
 if MODE == 4:
-    model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS).to(device)
+    model = Network().to(device)
     for params in model.parameters():
         params.requires_grad = True
 
@@ -59,7 +56,6 @@ optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters(
 scheduler = ExponentialLR(optimizer, LAMBDA)
 epoch, estop, maxval, maxind = 0, False, 0, 0
 num_batches = dataset.__len__() // BATCH_SIZE
-
 
 while epoch < NUM_EPOCHS and not estop:
     dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
@@ -106,6 +102,7 @@ while epoch < NUM_EPOCHS and not estop:
     """
     epoch += 1
     dataset.shuffleUnknown()
+    dataset.generateSilenceClass()
 
 if MODE == 1:
     torch.save(model.state_dict(), output_path + '/models/ResNet_'+KEY+'.ckpt')

@@ -11,9 +11,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.set_default_tensor_type('torch.FloatTensor')
 
 # Hyperparams
-NUM_EPOCHS = 30
-BATCH_SIZE = 20
-LEARNING_RATE = 0.0003
+NUM_EPOCHS = 2
+BATCH_SIZE = 2
+LEARNING_RATE = 0.003
 KEY = 'debug'
 LAMBDA = 0.87
 
@@ -23,7 +23,9 @@ output_path = '../Data/results'
 # Model & Dataset
 model = Network().to(device)
 dataset = SRCdataset(data_path + '/training_list.txt', data_path + '/audio')
+dataset.reduceDataset(2)
 valset = SRCdataset(data_path + '/validation_list.txt', data_path + '/audio')
+valset.reduceDataset(2)
 
 for params in model.parameters():
     params.requires_grad = True
@@ -65,7 +67,7 @@ while epoch < NUM_EPOCHS and not estop:
     if newval > maxval:
         maxval = newval
         maxind = epoch
-        torch.save(model.state_dict(), output_path+'/models/spec_'+KEY+'.ckpt')
+        torch.save(model.state_dict(), output_path+'/models/cnn_'+KEY+'.ckpt')
     if epoch > maxind + 5:
         estop = True
     

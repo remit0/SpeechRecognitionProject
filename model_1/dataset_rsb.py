@@ -7,7 +7,7 @@ from math import floor
 from os import listdir
 from os.path import isfile, join
 # pylint: disable=E1101, W0612
-
+# 1853
 labels = ['yes','no','up','down','left','right','on','off','stop','go','unknown','silence']
 unknown_words = ['bed', 'bird', 'cat', 'dog', 'eight', 'five', 'four', 'happy', 'house', 'marvin', 'nine', 'one', 'seven', 'sheila',
                 'six', 'three', 'tree', 'two', 'wow', 'zero']
@@ -20,12 +20,18 @@ class SRCdataset(Dataset):
         self.root_dir = root_dir
         self.txt_file = txt_file
 
+        path = self.root_dir +'/_background_noise_'
+        noise_list = [f for f in listdir(path) if isfile(join(path, f))]
+        noise_list.remove('README.md')
+        self.silence = noise_list
+
         with open(txt_file, 'r') as datalist:
             if 'training' not in txt_file:
+                self.train = False
                 self.data_list = [x.strip() for x in datalist.readlines()]
                 self.unknown = []
             else:
-                clear_silence(txt_file)
+                self.train = True
                 data = [x.strip() for x in datalist.readlines()]
                 data_list, unknown_list = [], []
 
@@ -37,13 +43,13 @@ class SRCdataset(Dataset):
                     else:
                         unknown_list.append(x)
 
-                for i in range(len(data_list)//10):
+                for i in range(1853):
                     sample_index = randint(0, len(unknown_list)-1)
                     data_list.append(unknown_list[sample_index])
+                    data_list.append('silence/silence.wav')
 
                 self.data_list = data_list
                 self.unknown = unknown_list
-                self.generateSilenceClass()
 
     def shuffleUnknown(self):
         new_data_list, ucount = [], 0
@@ -85,35 +91,6 @@ class SRCdataset(Dataset):
                 repartition[10] += 1
         print('class distribution :  ', [(labels[i], repartition[i]) for i in range(12)])
     
-    def generateSilenceClass(self):
-        clear_silence(self.txt_file)
-        self.data_list = [x for x in self.data_list if 'silence' not in x]
-
-        nsamples = len(self.data_list)//11
-        path = self.root_dir +'/_background_noise_'
-        noise_list = [f for f in listdir(path) if isfile(join(path, f))]
-        noise_list.remove('README.md')
-        
-        # generate 'silence' sample
-        for i in range(nsamples):
-            # select random noise effect
-            selected = noise_list[randint(0, len(noise_list)-1)]
-            _, sample = read(self.root_dir+'/_background_noise_/'+selected)
-            # select random start index over 60s
-            start_index = randint(0, len(sample)-16000)
-            # copy 1s after start index
-            new_sample = sample[start_index:start_index+16000]
-            new_sample = np.rint(new_sample).astype('int16')
-            # write file
-            write(self.root_dir+'/silence/silent'+str(i)+'.wav', 16000, new_sample)
-        
-        # appends new samples in both txt_file and data_list
-        with open(self.txt_file, 'a') as myfile:
-            noise_list = [f for f in listdir(self.root_dir+'/silence') if isfile(join(self.root_dir+'/silence', f))]
-            for i in range(nsamples):
-                myfile.write('silence/'+noise_list[i]+'\n')
-                self.data_list.append('silence/'+noise_list[i])
-
     def __len__(self):
         return len(self.data_list)
 
@@ -127,30 +104,37 @@ class SRCdataset(Dataset):
         else:
             label_idx = 10
 
-        # get sample
-        item_path = self.root_dir + '/' + item_name
-        _, new_sample = read(item_path)
-        new_sample = torch.from_numpy(new_sample)
+        try:
+            if label_idx == 11 and self.train:
+                sample = {'audio': self.draw_silence_sample(), 'label': 11}
+            else:
+                item_path = self.root_dir + '/' + item_name
+                _, new_sample = read(item_path)
+                new_sample = torch.from_numpy(new_sample)
+                # zero pad sample if length is not seq_length
+                if len(new_sample) != seq_length:
+                    padding = seq_length - len(new_sample)
+                    new_sample = torch.cat((new_sample, torch.zeros([padding], dtype = torch.short)), 0)
+                new_sample = new_sample.type(torch.FloatTensor)
+                sample = {'audio': new_sample, 'label': label_idx}
+            return sample
+        except:
+            print("bugged item:", item_name)
+            print("label", label_idx, label)
+            new_sample = np.zeros(16000)
+            new_sample = torch.from_numpy(new_sample)
+            new_sample = new_sample.type(torch.FloatTensor)
+            return {'audio': new_sample, 'label': 11}
+        
 
-        # zero pad sample if length is not seq_length
-        if len(new_sample) != seq_length:
-            padding = seq_length - len(new_sample)
-            new_sample = torch.cat((new_sample, torch.zeros([padding], dtype = torch.short)), 0)
-        new_sample = new_sample.type(torch.FloatTensor)
-        sample = {'audio': new_sample, 'label': label_idx}
-        return sample
-
-
-
-def clear_silence(filename):
-    """
-    clear 'silence' occurences in a text file
-    """
-    f = open(filename,'r')
-    lines = f.readlines()
-    f.close()
-    f = open(filename,'w')
-    for line in lines:
-        if 'silence' not in line:
-            f.write(line)
-    f.close()
+    def draw_silence_sample(self):
+        # select random noise effect
+        selected = self.silence[randint(0, len(self.silence)-1)]
+        _, sample = read(self.root_dir+'/_background_noise_/'+selected)
+        # select random start index over 60s
+        start_index = randint(0, len(sample)-16000)
+        # copy 1s after start index
+        new_sample = sample[start_index:start_index+16000]
+        new_sample = np.rint(new_sample).astype('int16')
+        new_sample = torch.from_numpy(new_sample).type(torch.FloatTensor)
+        return new_sample

@@ -3,7 +3,7 @@ import numpy as np
 from torch.utils.data import Dataset
 from random import randint
 from scipy.io.wavfile import write, read
-from librosa import stft, power_to_db
+from scipy import signal
 from math import floor
 from os import listdir
 from os.path import isfile, join
@@ -21,17 +21,21 @@ class SRCdataset(Dataset):
         self.root_dir = root_dir
         self.txt_file = txt_file
 
+        path = self.root_dir +'/_background_noise_'
+        noise_list = [f for f in listdir(path) if isfile(join(path, f))]
+        noise_list.remove('README.md')
+        self.silence = noise_list
+
         with open(txt_file, 'r') as datalist:
-            # testing and validation use every sample
             if 'training' not in txt_file:
+                self.train = False
                 self.data_list = [x.strip() for x in datalist.readlines()]
                 self.unknown = []
-            # training needs balanced sample
             else:
-                clear_silence(txt_file)
+                self.train = True
                 data = [x.strip() for x in datalist.readlines()]
                 data_list, unknown_list = [], []
-                # unknown set balancing
+
                 for x in data:
                     xlabel = x.split('/')
                     xlabel = xlabel[0]
@@ -40,18 +44,16 @@ class SRCdataset(Dataset):
                     else:
                         unknown_list.append(x)
 
-                for i in range(len(data_list)//10):
+                for i in range(1853):
                     sample_index = randint(0, len(unknown_list)-1)
                     data_list.append(unknown_list[sample_index])
+                    data_list.append('silence/silence.wav')
 
                 self.data_list = data_list
                 self.unknown = unknown_list
-                # random generation of 'silence' class
-                self.generateSilenceClass()
 
     def shuffleUnknown(self):
         new_data_list, ucount = [], 0
-        # keep samples from other classes
         for x in self.data_list:
             xlabel = x.split('/')
             xlabel = xlabel[0]
@@ -59,7 +61,6 @@ class SRCdataset(Dataset):
                 new_data_list.append(x)
             else:
                 ucount += 1
-        # randomly select new 'unknown' samples
         for i in range(ucount):
             sample_index = randint(0, len(self.unknown)-1)
             new_data_list.append(self.unknown[sample_index])
@@ -91,37 +92,6 @@ class SRCdataset(Dataset):
                 repartition[10] += 1
         print('class distribution :  ', [(labels[i], repartition[i]) for i in range(12)])
     
-    def generateSilenceClass(self):
-        # clears silence in both txt_file and data_list
-        clear_silence(self.txt_file)
-        self.data_list = [x for x in self.data_list if 'silence' not in x]
-
-        nsamples = len(self.data_list)//11
-        path = self.root_dir +'/_background_noise_'
-        noise_list = [f for f in listdir(path) if isfile(join(path, f))]
-        noise_list.remove('README.md')
-        
-        # generate 'silence' sample
-        for i in range(nsamples):
-            # select random noise effect
-            selected = noise_list[randint(0, len(noise_list)-1)]
-            #sample= load_wave_file(self.root_dir+'/_background_noise_/'+selected)
-            _, sample = read(self.root_dir+'/_background_noise_/'+selected)
-            # select random start index over 60s
-            start_index = randint(0, len(sample)-16000)
-            # copy 1s after start index
-            new_sample = sample[start_index:start_index+16000]
-            new_sample = np.rint(new_sample).astype('int16')
-            # write file
-            write(self.root_dir+'/silence/silent'+str(i)+'.wav', 16000, new_sample)
-        
-        # appends new samples in both txt_file and data_list
-        with open(self.txt_file, 'a') as myfile:
-            noise_list = [f for f in listdir(self.root_dir+'/silence') if isfile(join(self.root_dir+'/silence', f))]
-            for i in range(nsamples):
-                myfile.write('silence/'+noise_list[i]+'\n')
-                self.data_list.append('silence/'+noise_list[i])
-
     def __len__(self):
         return len(self.data_list)
 
@@ -135,30 +105,32 @@ class SRCdataset(Dataset):
         else:
             label_idx = 10
 
-        # get sample
-        item_path = self.root_dir + '/' + item_name
-        #new_sample = load_wave_file(item_path)
-        _, new_sample = read(item_path)
-        if len(new_sample) != seq_length:
-            padding = seq_length - len(new_sample)
-            new_sample = np.concatenate((new_sample, np.zeros(padding, dtype=int)))
-        new_sample = new_sample.astype(float)
+        try:
+            if label_idx == 11 and self.train:
+                new_sample =  self.draw_silence_sample()
+                new_sample = new_sample.astype(float)
+            else:
+                # get sample
+                item_path = self.root_dir + '/' + item_name
+                _, new_sample = read(item_path)
+                if len(new_sample) != seq_length:
+                    padding = seq_length - len(new_sample)
+                    new_sample = np.concatenate((new_sample, np.zeros(padding, dtype=int)))
+                new_sample = new_sample.astype(float)
 
-        # compute log spectrogram
-        spectrogram = np.abs(stft(new_sample, n_fft=640, hop_length=320))
-        spectrogram = power_to_db(spectrogram**2, top_db=200.0)
-        spectrogram = torch.from_numpy(spectrogram)
-        spectrogram = spectrogram.type(torch.FloatTensor)
-        
-        sample = {'spec': spectrogram, 'label': label_idx}
-        return sample
+            _, _, spectrogram = signal.spectrogram(new_sample, fs=16000, nperseg = 640, noverlap = 320, detrend = False)
+            spectrogram = np.log(spectrogram.astype(np.float32) + 1e-10)
+            spectrogram = torch.from_numpy(spectrogram)
+            spectrogram = spectrogram.type(torch.FloatTensor)
+            return {'spec': spectrogram, 'label': label_idx}
 
-def clear_silence(filename):
-    f = open(filename,'r')
-    lines = f.readlines()
-    f.close()
-    f = open(filename,'w')
-    for line in lines:
-        if 'silence' not in line:
-            f.write(line)
-    f.close()
+        except:
+            print("bugged item:", item_name)
+            print("label", label_idx, label)
+            new_sample = np.zeros(16000)
+            new_sample = new_sample.astype(float)
+            _, _, spectrogram = signal.spectrogram(new_sample, fs=16000, nperseg = 640, noverlap = 320, detrend = False)
+            spectrogram = np.log(spectrogram.astype(np.float32) + 1e-10)
+            spectrogram = torch.from_numpy(spectrogram)
+            spectrogram = spectrogram.type(torch.FloatTensor)
+            return {'spec': spectrogram, 'label': label_idx}

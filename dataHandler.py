@@ -71,7 +71,7 @@ def append_silence(dirpath, filename):
         for i in range(0, 270):
             myfile.write('silence/silent'+str(i)+'valtest.wav\n')
 
-#append_silence(../Data/train, '../Data/train/validation_list.txt')
+append_silence('../Data/train', '../Data/train/testing_list.txt')
 #append_silence(../Data/train, '../Data/train/test_file.txt')
 
 def clear_silence(filename):
