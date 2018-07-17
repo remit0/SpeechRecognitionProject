@@ -12,6 +12,7 @@ class Network(nn.Module):
         self.fc = nn.Linear(num_features*2, 12)
 
     def forward(self, x):
+        print(x.size())
         x = torch.transpose(x,1,2) #batch_size x sequence_length x features
         x, _ = self.gru(x)
         x = self.fc(x[:, -1, :])

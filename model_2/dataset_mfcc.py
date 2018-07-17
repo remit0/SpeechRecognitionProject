@@ -135,7 +135,7 @@ class SRCdataset(Dataset):
             if self.mode != "submission":
                 sample = {'mfccs': mfccs, 'label': label_idx}
             else:
-                sample = {'audio': new_sample, 'label': item_name}
+                sample = {'mfccs': mfccs, 'label': item_name}
             return sample
 
         except:

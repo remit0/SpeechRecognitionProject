@@ -111,7 +111,7 @@ class Dilation(nn.Module):
 
     def __init__(self):
         super(Dilation, self).__init__()
-        self.conv = nn.Conv1d(512, 1, 10, dilation=10)
+        self.conv = nn.Conv1d(512, 1, 10, dilation=20)
         self.bn = nn.BatchNorm1d(1)                        
         self.relu = nn.ReLU() 
         self.fc2 = nn.Linear(410, 12)

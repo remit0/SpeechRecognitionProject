@@ -10,6 +10,6 @@ export DATA_PATH=${ROOT_DIR}/Data
 export OUTPUT_PATH=${ROOT_DIR}/results/model3
 source ${ROOT_DIR}/venv/project/bin/activate
 
-python3 ${SRC_PATH}/submission_rsb.py -ft 512 -nl 2
+python3 ${SRC_PATH}/submission_spec.py -ft 512 -nl 2
 
 echo END

@@ -26,6 +26,7 @@ class Network(nn.Module):
 
     def forward(self, x):
         # batch_size x 1 x 321 x 49
+        print(x.size())
         x = self.bn1(x)
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))

@@ -11,12 +11,12 @@ dilated convolution model -> wavenet 3/4 layers
 """
 RUNNING :
 try only for resnet different kernels of 1st convolution stride 2 8 16 
-smaller than 1ms kernel 0.5ms
-test best models on the real test set - to change dataset + create submission
+test best models on the real test set - LOST OF 16%
 """
 
 """
 COMPLETED :
+first step RSB: smaller kernel 0.5ms
 try only for resnet different kernels of 1st convolution 10 / 20 / 1 ms
 full model in one go (dilated)
 full model in one go (GRU) - more tests on 3 steps ?
