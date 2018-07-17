@@ -35,9 +35,10 @@ class ResNet(nn.Module):
         self.mode = mode
         self.inplanes = 64
         super(ResNet, self).__init__()
-        #self.conv1 = nn.Conv1d(1, 64, kernel_size=80, stride=4, padding=38, bias=False)
+        self.dim = 500
+        self.conv1 = nn.Conv1d(1, 64, kernel_size=80, stride=4, padding=38, bias=False)
         #self.conv1 = nn.Conv1d(1, 64, kernel_size=16, stride=4, padding=38, bias=False)
-        self.conv1 = nn.Conv1d(1, 64, kernel_size=160, stride=4, padding=38, bias=False)  
+        #self.conv1 = nn.Conv1d(1, 64, kernel_size=160, stride=4, padding=38, bias=False)  
         #self.conv1 = nn.Conv1d(1, 64, kernel_size=320, stride=4, padding=38, bias=False)
         #self.conv1 = nn.Conv1d(1, 64, kernel_size=8, stride=4, padding=38, bias=False)
         self.bn1 = nn.BatchNorm1d(64)
@@ -47,7 +48,7 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, 2, stride=2)
         self.layer4 = self._make_layer(block, 512, 2, stride=2)
         self.fc1 = nn.Linear(512, 512)
-        self.dim = 498
+        
         self.backend_conv1 = nn.Sequential(
             nn.Conv1d(self.dim, 2*self.dim, 5, 2, 0, bias=False),
             nn.BatchNorm1d(2*self.dim),
@@ -98,12 +99,11 @@ class ResNet(nn.Module):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)              #batchSize x features(512) x seqLen(500)
-
+        print(x.size())
         x = torch.transpose(x,1,2)
         x = x.contiguous()
         bs = x.size(0)
         sl = x.size(1)
-        x = x.view(bs*sl, -1) #batchSize*seqLen x features
         x = self.fc1(x)
 
         if self.mode == 1:
@@ -112,7 +112,9 @@ class ResNet(nn.Module):
             x = torch.mean(x, 2)
             x = self.backend_conv2(x)
         
-        x = x.view(bs, sl, 512)
+        else:
+            x = x.view(bs, sl, 512) #batchSize*seqLen x features
+        
         return x
 
 class GRU(nn.Module):
@@ -144,7 +146,7 @@ class Network(nn.Module):
 def accuracy(model, device, dataset, filename, batchsize=2):
     total, correct = 0, 0
     model.eval()
-    dataloader = DataLoader(dataset, batch_size = batchsize, drop_last = True)
+    dataloader = DataLoader(dataset, batch_size = batchsize, drop_last = False)
 
     with torch.no_grad():
         for i_batch, batch in enumerate(dataloader):

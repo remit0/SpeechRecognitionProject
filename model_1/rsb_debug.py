@@ -20,15 +20,16 @@ BATCH_SIZE = 2
 LEARNING_RATE = 0.003
 NUM_FEATURES = 256
 NUM_LAYERS = 1
-MODE = 4
+MODE = 1
 KEY = 'debug'
 LAMBDA = 0.87
 
 # Model & Dataset
 dataset = SRCdataset(data_path + '/training_list.txt', data_path + '/audio')
 valset = SRCdataset(data_path + '/validation_list.txt', data_path + '/audio')
+dataset.reduceDataset(4)
+valset.reduceDataset(4)
 dataset.display()
-valset.display()
 
 if MODE == 1:
     model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS, mode=MODE).to(device)
@@ -81,14 +82,11 @@ while epoch < NUM_EPOCHS and not estop:
             .format(epoch+1, NUM_EPOCHS, i_batch+1, num_batches, loss.item()))
         
         # Save loss
-        with open(output_path +'/loss_'+KEY+'.txt', 'a') as myfile:
-            myfile.write(str(loss.item())+'\n')
+        #with open(output_path +'/loss_'+KEY+'.txt', 'a') as myfile:
+        #    myfile.write(str(loss.item())+'\n')
 
-    """
     # Save model, accuracy at each epoch
-    newval = accuracy(model, device, valset, output_path + '/val_'+KEY+'.txt', 4)
-    print('Accuracy on validation set :', newval)
-    accuracy(model, device, dataset, output_path + '/train_'+KEY+'.txt', 4)
+    newval = accuracy(model, device, valset, output_path + '/test_'+KEY+'.txt', 4)
     
     # Early stopping
     if newval > maxval:
@@ -103,13 +101,6 @@ while epoch < NUM_EPOCHS and not estop:
     
     if epoch > maxind + 4:
         estop = True
-    """
+
     epoch += 1
     dataset.shuffleUnknown()
-
-if MODE == 1:
-    torch.save(model.state_dict(), output_path + '/models/ResNet_'+KEY+'.ckpt')
-if MODE == 2:
-    torch.save(model.state_dict(), output_path +'/models/BGRU_'+KEY+'.ckpt')
-if MODE == 3:
-    torch.save(model.state_dict(), output_path +'/models/final_'+KEY+'.ckpt')

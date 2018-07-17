@@ -16,28 +16,30 @@ seq_length = 16000
 
 class SRCdataset(Dataset):
 
-    def __init__(self, txt_file, root_dir):
+    def __init__(self, txt_file, root_dir, mode="working"):
 
         self.root_dir = root_dir
         self.txt_file = txt_file
+        self.mode = mode
 
-        path = self.root_dir +'/_background_noise_'
-        noise_list = [f for f in listdir(path) if isfile(join(path, f))]
-        noise_list.remove('README.md')
-        self.silence = noise_list
+        if self.mode != "submission":
+            path = self.root_dir +'/_background_noise_'
+            noise_list = [f for f in listdir(path) if isfile(join(path, f))]
+            noise_list.remove('README.md')
+            self.silence = noise_list
+        else:
+            self.silence = []
 
         with open(txt_file, 'r') as datalist:
-            # testing and validation use every sample
             if 'training' not in txt_file:
                 self.train = False
                 self.data_list = [x.strip() for x in datalist.readlines()]
                 self.unknown = []
-            # training needs balanced sample
             else:
                 self.train = True
                 data = [x.strip() for x in datalist.readlines()]
                 data_list, unknown_list = [], []
-                # unknown set balancing
+
                 for x in data:
                     xlabel = x.split('/')
                     xlabel = xlabel[0]
@@ -109,13 +111,13 @@ class SRCdataset(Dataset):
             label_idx = labels.index(label)
         else:
             label_idx = 10
+            label = 'unknown'
 
         try:
             if label_idx == 11 and self.train:
                 new_sample =  self.draw_silence_sample()
                 new_sample = new_sample.astype(float)
             else:
-                # get sample
                 item_path = self.root_dir + '/' + item_name
                 _, new_sample = read(item_path)
                 if len(new_sample) != seq_length:
@@ -130,7 +132,10 @@ class SRCdataset(Dataset):
             mfccs = np.concatenate((mfccs, np.gradient(grad_mfccs, axis = 1))) #3*n_mfcc x 51
             mfccs = torch.from_numpy(mfccs)
             mfccs = mfccs.type(torch.FloatTensor)
-            sample = {'mfccs': mfccs, 'label': label_idx}
+            if self.mode != "submission":
+                sample = {'mfccs': mfccs, 'label': label_idx}
+            else:
+                sample = {'audio': new_sample, 'label': item_name}
             return sample
 
         except:
@@ -154,6 +159,4 @@ class SRCdataset(Dataset):
         start_index = randint(0, len(sample)-16000)
         # copy 1s after start index
         new_sample = sample[start_index:start_index+16000]
-        new_sample = np.rint(new_sample).astype('int16')
-        new_sample = torch.from_numpy(new_sample).type(torch.FloatTensor)
         return new_sample

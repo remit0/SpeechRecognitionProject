@@ -2,19 +2,17 @@
 TO WORK ON :
 -- adding noise during training
 -- kernel from forum
-test best models on the real test set
 3steps dilated convolution on wavenet
 kernel size inside resnet blocks
 encadrement learning_rate for 1st convolution // full model
 dilated convolution model -> wavenet 3/4 layers
-change silence class generation model // generate on the fly silence samples
-batch results copy on results.xls
 """
 
 """
 RUNNING :
 try only for resnet different kernels of 1st convolution stride 2 8 16 
 smaller than 1ms kernel 0.5ms
+test best models on the real test set - to change dataset + create submission
 """
 
 """

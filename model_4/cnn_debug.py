@@ -11,8 +11,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.set_default_tensor_type('torch.FloatTensor')
 
 # Hyperparams
-NUM_EPOCHS = 2
-BATCH_SIZE = 2
+NUM_EPOCHS = 1
+BATCH_SIZE = 4
 LEARNING_RATE = 0.003
 KEY = 'debug'
 LAMBDA = 0.87
@@ -23,16 +23,17 @@ output_path = '../Data/results'
 # Model & Dataset
 model = Network().to(device)
 dataset = SRCdataset(data_path + '/training_list.txt', data_path + '/audio')
-dataset.reduceDataset(2)
 valset = SRCdataset(data_path + '/validation_list.txt', data_path + '/audio')
-valset.reduceDataset(2)
+dataset.reduceDataset(4)
+valset.reduceDataset(4)
+dataset.display()
 
 for params in model.parameters():
     params.requires_grad = True
 
 # Loss and optimizer
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE) #SGD ?
+optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 scheduler = ExponentialLR(optimizer, LAMBDA)
 epoch, estop, maxval, maxind = 0, False, 0, 0
 num_batches = dataset.__len__() // BATCH_SIZE
@@ -52,25 +53,24 @@ while epoch < NUM_EPOCHS and not estop:
         optimizer.step()
         
         # Save loss
-        with open( output_path + '/loss_'+KEY+'.txt', 'a') as myfile:
-            myfile.write(str(loss.item())+'\n')
+        #with open( output_path + '/loss_'+KEY+'.txt', 'a') as myfile:
+        #    myfile.write(str(loss.item())+'\n')
         
         # Display
         print ('Epoch [{}/{}], Step[{}/{}], Loss: {:.9f}'
             .format(epoch+1, NUM_EPOCHS, i_batch+1, num_batches, loss.item()))
 
     # Save model, accuracy at each epoch
-    newval = accuracy(model, device, valset, output_path + '/val_'+KEY+'.txt', 4)
-    accuracy(model, device, dataset, output_path + '/train_'+KEY+'.txt', 4)
+    newval = accuracy(model, device, valset, output_path + '/test_'+KEY+'.txt', 4)
+    accuracy(model, device, dataset, output_path + '/test_'+KEY+'.txt', 4)
     
     # Early stopping
     if newval > maxval:
         maxval = newval
         maxind = epoch
-        torch.save(model.state_dict(), output_path+'/models/cnn_'+KEY+'.ckpt')
+        #torch.save(model.state_dict(), output_path+'/models/cnn_'+KEY+'.ckpt')
     if epoch > maxind + 5:
         estop = True
     
     dataset.shuffleUnknown()
-    dataset.generateSilenceClass()
     epoch += 1

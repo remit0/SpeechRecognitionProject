@@ -16,15 +16,19 @@ seq_length = 16000
 
 class SRCdataset(Dataset):
 
-    def __init__(self, txt_file, root_dir):
+    def __init__(self, txt_file, root_dir, mode = "working"):
 
         self.root_dir = root_dir
         self.txt_file = txt_file
+        self.mode = mode
 
-        path = self.root_dir +'/_background_noise_'
-        noise_list = [f for f in listdir(path) if isfile(join(path, f))]
-        noise_list.remove('README.md')
-        self.silence = noise_list
+        if self.mode != "submission":
+            path = self.root_dir +'/_background_noise_'
+            noise_list = [f for f in listdir(path) if isfile(join(path, f))]
+            noise_list.remove('README.md')
+            self.silence = noise_list
+        else:
+            self.silence = []
 
         with open(txt_file, 'r') as datalist:
             if 'training' not in txt_file:
@@ -122,7 +126,11 @@ class SRCdataset(Dataset):
             spectrogram = np.log(spectrogram.astype(np.float32) + 1e-10)
             spectrogram = torch.from_numpy(spectrogram)
             spectrogram = spectrogram.type(torch.FloatTensor)
-            return {'spec': spectrogram, 'label': label_idx}
+            if self.mode != "submission":
+                sample = {'spec': spectrogram, 'label': label_idx}
+            else:
+                sample = {'spec': spectrogram, 'label': item_name}
+            return sample
 
         except:
             print("bugged item:", item_name)
@@ -134,3 +142,10 @@ class SRCdataset(Dataset):
             spectrogram = torch.from_numpy(spectrogram)
             spectrogram = spectrogram.type(torch.FloatTensor)
             return {'spec': spectrogram, 'label': label_idx}
+
+    def draw_silence_sample(self):
+        selected = self.silence[randint(0, len(self.silence)-1)]
+        _, sample = read(self.root_dir+'/_background_noise_/'+selected)
+        start_index = randint(0, len(sample)-16000)
+        new_sample = sample[start_index:start_index+16000]
+        return new_sample

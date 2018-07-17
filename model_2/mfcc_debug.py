@@ -12,11 +12,11 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.set_default_tensor_type('torch.FloatTensor')
 
 # Hyperparams
-NUM_EPOCHS = 30
-BATCH_SIZE = 20
+NUM_EPOCHS = 1
+BATCH_SIZE = 2
 LEARNING_RATE = 0.0003
 NUM_FEATURES = 256
-NUM_LAYERS = 2
+NUM_LAYERS = 1
 KEY = 'debug'
 LAMBDA = 0.87
 
@@ -27,6 +27,8 @@ output_path = '../Data/results'
 model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS).to(device)
 dataset = SRCdataset(data_path + '/training_list.txt', data_path + '/audio')
 valset = SRCdataset(data_path + '/validation_list.txt', data_path + '/audio')
+dataset.reduceDataset(4)
+valset.reduceDataset(4)
 dataset.display()
 
 for params in model.parameters():
@@ -54,25 +56,24 @@ while epoch < NUM_EPOCHS and not estop:
         optimizer.step()
                 
         # Save loss
-        with open( output_path + '/loss_'+KEY+'.txt', 'a') as myfile:
-            myfile.write(str(loss.item())+'\n')
+        #with open( output_path + '/loss_'+KEY+'.txt', 'a') as myfile:
+        #    myfile.write(str(loss.item())+'\n')
         
         # Display
         print ('Epoch [{}/{}], Step[{}/{}], Loss: {:.9f}'
             .format(epoch+1, NUM_EPOCHS, i_batch+1, num_batches, loss.item()))
 
     # Save model, accuracy at each epoch
-    newval = accuracy(model, device, valset, output_path + '/accVal_'+KEY+'.txt', 4)
-    accuracy(model, device, dataset, output_path + '/accTrain_'+KEY+'.txt', 4)
+    newval = accuracy(model, device, valset, output_path + '/test'+KEY+'.txt', 4)
+    accuracy(model, device, dataset, output_path + '/test'+KEY+'.txt', 4)
     
     # Early stopping
     if newval > maxval:
         maxval = newval
         maxind = epoch
-        torch.save(model.state_dict(), output_path+'/models/mfcc_'+KEY+'.ckpt')
+        #torch.save(model.state_dict(), output_path+'/models/mfcc_'+KEY+'.ckpt')
     if epoch > maxind + 6:
         estop = True
     
     dataset.shuffleUnknown()
-    dataset.generateSilenceClass()
     epoch += 1

@@ -20,7 +20,7 @@ class Network(nn.Module):
 def accuracy(model, device, dataset, filename, batchsize=2):
     total, correct = 0, 0
     model.eval()
-    dataloader = DataLoader(dataset, batch_size = batchsize, drop_last = True)
+    dataloader = DataLoader(dataset, batch_size = batchsize, drop_last = False)
 
     with torch.no_grad():
         for i_batch, batch in enumerate(dataloader):
