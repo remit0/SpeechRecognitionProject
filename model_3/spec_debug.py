@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import ExponentialLR
 from dataset_spec import SRCdataset
-from model_spec import Network, accuracy
+from model_spec import Network, accuracy, class_accuracy
 # pylint: disable=E1101, W0612
 
 # Device configuration
@@ -77,3 +77,5 @@ while epoch < NUM_EPOCHS and not estop:
     
     dataset.shuffleUnknown()
     epoch += 1
+
+class_accuracy(model, device, valset, output_path + '/class_'+KEY+'.txt', batchsize=4)

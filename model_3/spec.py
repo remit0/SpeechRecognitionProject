@@ -33,7 +33,7 @@ if args.output_path is not None:
 
 os.chdir(source)
 from dataset_spec import SRCdataset
-from model_spec import Network, accuracy
+from model_spec import Network, accuracy, class_accuracy
 
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -106,7 +106,8 @@ while epoch < NUM_EPOCHS and not estop:
         maxval = newval
         maxind = epoch
         torch.save(model.state_dict(), output_path+'/models/spec_'+KEY+'.ckpt')
-    
+        class_accuracy(model, device, valset, output_path + '/class_'+KEY+'.txt', batchsize=4)
+        
     if epoch > maxind + 4:
         estop = True
     dataset.shuffleUnknown()

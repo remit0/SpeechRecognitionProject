@@ -40,7 +40,7 @@ if args.filekey is not None:
 
 os.chdir(source)
 from dataset_dilated import SRCdataset
-from model_dilated import Network, accuracy
+from model_dilated import Network, accuracy, class_accuracy
 
 # Device configuration
 start = time.time()
@@ -138,6 +138,7 @@ while epoch < NUM_EPOCHS and not estop:
             torch.save(model.state_dict(), output_path +'/models/Conv_'+KEY+'.ckpt')
         if MODE == 3:
             torch.save(model.state_dict(), output_path +'/models/finald_'+KEY+'.ckpt')
+        class_accuracy(model, device, valset, output_path + '/class_'+KEY+'.txt', batchsize=4)
 
     if epoch > maxind + 4:
         estop = True

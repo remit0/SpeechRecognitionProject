@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import ExponentialLR
 from dataset_dilated import SRCdataset
-from model_dilated import Network, accuracy
+from model_dilated import Network, accuracy, class_accuracy
 # pylint: disable=E1101, W0612
 
 data_path = '../Data/train'
@@ -88,6 +88,7 @@ while epoch < NUM_EPOCHS and not estop:
     if newval > maxval:
         maxval = newval
         maxind = epoch
+        class_accuracy(model, device, valset, output_path + '/class_'+KEY+'.txt', batchsize=4)
         """
         if MODE == 1:
             torch.save(model.state_dict(), output_path + '/models/ResNet_'+KEY+'.ckpt')

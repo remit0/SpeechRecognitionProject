@@ -32,7 +32,7 @@ if args.output_path is not None:
 
 os.chdir(source)
 from dataset_mfcc import SRCdataset
-from model_mfcc import Network, accuracy
+from model_mfcc import Network, class_accuracy, accuracy
 
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -104,6 +104,7 @@ while epoch < NUM_EPOCHS and not estop:
         maxval = newval
         maxind = epoch
         torch.save(model.state_dict(), output_path+'/models/mfcc_'+KEY+'.ckpt')
+        class_accuracy(model, device, valset, output_path + '/class_'+KEY+'.txt', batchsize=4)
     if epoch > maxind + 4:
         estop = True
     

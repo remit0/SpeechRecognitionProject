@@ -33,3 +33,25 @@ def accuracy(model, device, dataset, filename, batchsize=2):
         f.write(str(100 * correct / float(total))+'\n')
     model.train()
     return(100 * correct / float(total))
+
+def class_accuracy(model, device, dataset, filename, batchsize=2):
+    labels = ['yes','no','up','down','left','right','on','off','stop','go','unknown','silence']
+    class_correct = list(0. for i in range(12))
+    class_total = list(0. for i in range(12))
+    model.eval()
+    dataloader = DataLoader(dataset, batch_size = batchsize, drop_last = False)
+    with torch.no_grad():
+        for i_batch, batch in enumerate(dataloader):
+            outputs = model(batch['spec'].to(device))
+            _, predicted = torch.max(outputs.data, 1)
+            c = (predicted == batch['label']).squeeze()
+
+            for i in range(batchsize):
+                label = batch['label'][i]
+                class_correct[label] += c[i].item()
+                class_total[label] += 1
+    with open(filename, 'w') as myFile:
+        for i in range(12):        
+            myFile.write('Accuracy of %5s : %2d %%' % (
+            labels[i], 100 * class_correct[i] / class_total[i])+'\n')
+    model.train()

@@ -11,11 +11,12 @@ dilated convolution model -> wavenet 3/4 layers
 """
 RUNNING :
 try only for resnet different kernels of 1st convolution stride 2 8 16 
-test best models on the real test set - LOST OF 16%
+test best models on the real test set - LOST OF 16% ?? ~ silence class 
 """
 
 """
 COMPLETED :
+per class accuracy
 first step RSB: smaller kernel 0.5ms
 try only for resnet different kernels of 1st convolution 10 / 20 / 1 ms
 full model in one go (dilated)
