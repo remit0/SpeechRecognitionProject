@@ -7,10 +7,12 @@ class BasicBlock(nn.Module):
 
     def __init__(self, inplanes, planes, stride=1, downsample=None):
         super(BasicBlock, self).__init__()
-        self.conv1 = nn.Conv1d(inplanes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.kernel_size = 9
+        self.padding = 4
+        self.conv1 = nn.Conv1d(inplanes, planes, kernel_size=self.kernel_size, stride=stride, padding=self.padding, bias=False)
         self.bn1 = nn.BatchNorm1d(planes)                        
         self.relu = nn.ReLU(inplace=True)                           
-        self.conv2 = nn.Conv1d(planes, planes, stride=1, kernel_size=3, padding=1, bias=False)
+        self.conv2 = nn.Conv1d(planes, planes, stride=1, kernel_size=self.kernel_size, padding=self.padding, bias=False)
         self.bn2 = nn.BatchNorm1d(planes)
         self.downsample = downsample  
         self.stride = stride                     
@@ -99,11 +101,12 @@ class ResNet(nn.Module):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)              #batchSize x features(512) x seqLen(500)
-        print(x.size())
+
         x = torch.transpose(x,1,2)
         x = x.contiguous()
         bs = x.size(0)
         sl = x.size(1)
+        print(x.size())
         x = self.fc1(x)
 
         if self.mode == 1:
@@ -170,7 +173,7 @@ def class_accuracy(model, device, dataset, filename, batchsize=2):
         for i_batch, batch in enumerate(dataloader):
             outputs = model(batch['audio'].unsqueeze(1).to(device))
             _, predicted = torch.max(outputs.data, 1)
-            c = (predicted == batch['label']).squeeze()
+            c = (predicted == batch['label'].to(device)).squeeze()
 
             for i in range(batchsize):
                 label = batch['label'][i]

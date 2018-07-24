@@ -107,6 +107,7 @@ class ResNet(nn.Module):
 
         return x
 
+"""
 class Dilation(nn.Module):
 
     def __init__(self):
@@ -117,12 +118,191 @@ class Dilation(nn.Module):
         self.fc2 = nn.Linear(320, 12)
 
     def forward(self, x):
-        x = x.view(-1, 512, 500)      
+        x = x.view(-1, 512, 500)    
         x = self.conv(x)
         x = self.bn(x)
         x = self.relu(x)
         print(x.size())
         x = self.fc2(x[:, -1, :])
+        
+        return x
+"""
+
+"""
+import os
+import os.path
+import time
+from wavenet_modules import *
+
+class WaveNetModel(nn.Module):
+    def __init__(self,
+                 layers=10,
+                 blocks=4,
+                 dilation_channels=32,
+                 residual_channels=32,
+                 skip_channels=256,
+                 end_channels=256,
+                 classes=12,
+                 output_length=32,
+                 kernel_size=2,
+                 dtype=torch.FloatTensor,
+                 bias=False):
+
+        super(WaveNetModel, self).__init__()
+
+        self.layers = layers
+        self.blocks = blocks
+        self.dilation_channels = dilation_channels
+        self.residual_channels = residual_channels
+        self.skip_channels = skip_channels
+        self.classes = classes
+        self.kernel_size = kernel_size
+        self.dtype = dtype
+
+        # build model
+        receptive_field = 1
+        init_dilation = 1
+
+        self.dilations = []
+        self.dilated_queues = []
+        # self.main_convs = nn.ModuleList()
+        self.filter_convs = nn.ModuleList()
+        self.gate_convs = nn.ModuleList()
+        self.residual_convs = nn.ModuleList()
+        self.skip_convs = nn.ModuleList()
+
+        # 1x1 convolution to create channels
+        self.start_conv = nn.Conv1d(in_channels=self.classes,
+                                    out_channels=residual_channels,
+                                    kernel_size=1,
+                                    bias=bias)
+
+        for b in range(blocks):
+            additional_scope = kernel_size - 1
+            new_dilation = 1
+            for i in range(layers):
+                # dilations of this layer
+                self.dilations.append((new_dilation, init_dilation))
+
+                # dilated queues for fast generation
+                self.dilated_queues.append(DilatedQueue(max_length=(kernel_size - 1) * new_dilation + 1,
+                                                        num_channels=residual_channels,
+                                                        dilation=new_dilation,
+                                                        dtype=dtype))
+
+                # dilated convolutions
+                self.filter_convs.append(nn.Conv1d(in_channels=residual_channels,
+                                                   out_channels=dilation_channels,
+                                                   kernel_size=kernel_size,
+                                                   bias=bias))
+
+                self.gate_convs.append(nn.Conv1d(in_channels=residual_channels,
+                                                 out_channels=dilation_channels,
+                                                 kernel_size=kernel_size,
+                                                 bias=bias))
+
+                # 1x1 convolution for residual connection
+                self.residual_convs.append(nn.Conv1d(in_channels=dilation_channels,
+                                                     out_channels=residual_channels,
+                                                     kernel_size=1,
+                                                     bias=bias))
+
+                # 1x1 convolution for skip connection
+                self.skip_convs.append(nn.Conv1d(in_channels=dilation_channels,
+                                                 out_channels=skip_channels,
+                                                 kernel_size=1,
+                                                 bias=bias))
+
+                receptive_field += additional_scope
+                additional_scope *= 2
+                init_dilation = new_dilation
+                new_dilation *= 2
+
+        self.end_conv_1 = nn.Conv1d(in_channels=skip_channels,
+                                  out_channels=end_channels,
+                                  kernel_size=1,
+                                  bias=True)
+
+        self.end_conv_2 = nn.Conv1d(in_channels=end_channels,
+                                    out_channels=classes,
+                                    kernel_size=1,
+                                    bias=True)
+
+        # self.output_length = 2 ** (layers - 1)
+        self.output_length = output_length
+        self.receptive_field = receptive_field
+
+    def wavenet(self, input, dilation_func):
+
+        x = self.start_conv(input)
+        skip = 0
+
+        # WaveNet layers
+        for i in range(self.blocks * self.layers):
+
+            #            |----------------------------------------|     *residual*
+            #            |                                        |
+            #            |    |-- conv -- tanh --|                |
+            # -> dilate -|----|                  * ----|-- 1x1 -- + -->	*input*
+            #                 |-- conv -- sigm --|     |
+            #                                         1x1
+            #                                          |
+            # ---------------------------------------> + ------------->	*skip*
+
+            (dilation, init_dilation) = self.dilations[i]
+
+            residual = dilation_func(x, dilation, init_dilation, i)
+
+            # dilated convolution
+            filter = self.filter_convs[i](residual)
+            filter = F.tanh(filter)
+            gate = self.gate_convs[i](residual)
+            gate = F.sigmoid(gate)
+            x = filter * gate
+
+            # parametrized skip connection
+            s = x
+            if x.size(2) != 1:
+                 s = dilate(x, 1, init_dilation=dilation)
+            s = self.skip_convs[i](s)
+            try:
+                skip = skip[:, :, -s.size(2):]
+            except:
+                skip = 0
+            skip = s + skip
+
+            x = self.residual_convs[i](x)
+            x = x + residual[:, :, (self.kernel_size - 1):]
+
+        x = F.relu(skip)
+        x = F.relu(self.end_conv_1(x))
+        x = self.end_conv_2(x)
+
+        return x
+
+    def wavenet_dilate(self, input, dilation, init_dilation, i):
+        x = dilate(input, dilation, init_dilation)
+        return x
+
+    def queue_dilate(self, input, dilation, init_dilation, i):
+        queue = self.dilated_queues[i]
+        queue.enqueue(input.data[0])
+        x = queue.dequeue(num_deq=self.kernel_size,
+                          dilation=dilation)
+        x = x.unsqueeze(0)
+
+        return x
+
+    def forward(self, input):
+        x = self.wavenet(input,
+                         dilation_func=self.wavenet_dilate)
+
+        # reshape output
+        [n, c, l] = x.size()
+        l = self.output_length
+        x = x[:, :, -l:]
+        x = x.transpose(1, 2).contiguous()
+        x = x.view(n * l, c)
         return x
 
 class Network(nn.Module):
@@ -137,7 +317,40 @@ class Network(nn.Module):
         if self.mode != 1:
             x = self.dilation(x)
         return x
+"""
+class Dilation(nn.Module):
 
+    def __init__(self):
+        super(Dilation, self).__init__()
+        self.conv1 = nn.Conv1d(512, 512, 3, dilation=1)
+        self.conv2 = nn.Conv1d(512, 512, 3, dilation=2)
+        self.conv3 = nn.Conv1d(512, 512, 3, dilation=4)
+        self.conv4 = nn.Conv1d(512, 512, 3, dilation=8)                
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(240640, 12)
+
+    def forward(self, x):
+        x = x.view(-1, 512, 500)    
+        x = self.relu(self.conv1(x))
+        x = self.conv2(self.relu(x))
+        x = self.conv3(self.relu(x))
+        x = self.conv4(self.relu(x))
+        x = x.view(x.size(0), -1)
+        x = self.fc2(x)
+        return x
+
+class Network(nn.Module):
+    def __init__(self, mode = 0):
+        super(Network, self).__init__()
+        self.mode = mode
+        self.resnet = ResNet(BasicBlock, mode = mode)
+        self.dilation = Dilation()
+    
+    def forward(self, x):
+        x = self.resnet(x)
+        if self.mode != 1:
+            x = self.dilation(x)
+        return x
 
 def accuracy(model, device, dataset, filename, batchsize=2):
     total, correct = 0, 0
@@ -166,7 +379,7 @@ def class_accuracy(model, device, dataset, filename, batchsize=2):
         for i_batch, batch in enumerate(dataloader):
             outputs = model(batch['audio'].unsqueeze(1).to(device))
             _, predicted = torch.max(outputs.data, 1)
-            c = (predicted == batch['label']).squeeze()
+            c = (predicted == batch['label'].to(device)).squeeze()
 
             for i in range(batchsize):
                 label = batch['label'][i]

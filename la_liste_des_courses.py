@@ -1,26 +1,28 @@
 """
 TO WORK ON :
--- adding noise during training
--- kernel from forum
-3steps dilated convolution on wavenet
-kernel size inside resnet blocks
-encadrement learning_rate for 1st convolution // full model
-dilated convolution model -> wavenet 3/4 layers
+-- stretching shifting (in addition)
 """
-
 """
 RUNNING :
-try only for resnet different kernels of 1st convolution stride 2 8 16 
-test best models on the real test set - LOST OF 16% ?? ~ silence class 
+-- adding noise during training + scale down uniformly 0.1 + scale down uniformly 1
 """
-
 """
 COMPLETED :
-per class accuracy
-first step RSB: smaller kernel 0.5ms
-try only for resnet different kernels of 1st convolution 10 / 20 / 1 ms
-full model in one go (dilated)
-full model in one go (GRU) - more tests on 3 steps ?
-step 3 on model 1
-testing CNN - architecture ? spectrogram that works well for time series
+silent class remodelling: 10% as pure silent / scale down silence uniformly law [0, 1]
+try kernel 5ms - stride 1 ms - kernel 9 and 15 train full model one go (model1) + submit
+try kernel 5ms - stride 0.25 ms - kernel 9 train full model one go + submit
+submit results on key 58 and 56
+--
+change early stopping to 10 (all models)
+kernel size inside resnet blocks (model1 - step 1)
+test best models on the real test set (all models)
+try only for resnet different kernels of 1st convolution stride 2 8 16  (model1 - step 1)
+per class accuracy (all models)
+smaller kernel 0.5ms (model1 - step 1)
+--
+try only for resnet different kernels of 1st convolution 10 / 20 / 1 ms (model1 - step 1)
+full model in one go (model5)
+full model in one go (model1)
+training step 3 (model1)
+testing spec CNN (model4)
 """

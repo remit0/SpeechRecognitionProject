@@ -45,17 +45,15 @@ def silence_generator():
     noise_list.remove('README.md')
     
     for i in range(nsamples):
-        #select random noise effect
-        selected = noise_list[randint(0, len(noise_list)-1)]
-        _, sample = scwav.read('../Data/train/audio/_background_noise_/'+selected)
-        #select random start index over 60s
-        start_index = randint(0, len(sample)-16000)
-        #copy 1s after start index
-        new_sample = sample[start_index:start_index+16000]
-        #randomly lower the intensity
-        #decrease = uniform(0, 0.6)         # ?
-        #new_sample = decrease*new_sample
-        new_sample = np.rint(new_sample).astype('int16')
+        if i < 27:
+            new_sample = np.zeros(16000, dtype='int16')
+        else:
+            selected = noise_list[randint(0, len(noise_list)-1)]
+            _, sample = scwav.read('../Data/train/audio/_background_noise_/'+selected)
+            start_index = randint(0, len(sample)-16000)
+            new_sample = sample[start_index:start_index+16000] * np.random.uniform(0, 1)
+            new_sample = np.rint(new_sample).astype('int16')
+
         #write file
         scwav.write('../Data/train/audio/silence/silent'+str(i)+'valtest.wav', 16000, new_sample)
 

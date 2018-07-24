@@ -20,6 +20,7 @@ class SRCdataset(Dataset):
         self.root_dir = root_dir
         self.txt_file = txt_file
         self.mode = mode
+        self.zero_silence = 0
 
         if self.mode != "submission":
             path = self.root_dir +'/_background_noise_'
@@ -113,11 +114,12 @@ class SRCdataset(Dataset):
             else:
                 item_path = self.root_dir + '/' + item_name
                 _, new_sample = read(item_path)
-                new_sample = torch.from_numpy(new_sample)
-                # zero pad sample if length is not seq_length
                 if len(new_sample) != seq_length:
                     padding = seq_length - len(new_sample)
-                    new_sample = torch.cat((new_sample, torch.zeros([padding], dtype = torch.short)), 0)
+                    new_sample = np.concatenate((new_sample, np.zeros(padding, dtype=int)))
+                if self.train:
+                    new_sample = self.add_noise_kaggle(new_sample)
+                new_sample = torch.from_numpy(new_sample)
                 new_sample = new_sample.type(torch.FloatTensor)
                 if self.mode != "submission":
                     sample = {'audio': new_sample, 'label': label_idx}
@@ -134,13 +136,39 @@ class SRCdataset(Dataset):
         
 
     def draw_silence_sample(self):
-        # select random noise effect
-        selected = self.silence[randint(0, len(self.silence)-1)]
-        _, sample = read(self.root_dir+'/_background_noise_/'+selected)
-        # select random start index over 60s
-        start_index = randint(0, len(sample)-16000)
-        # copy 1s after start index
-        new_sample = sample[start_index:start_index+16000]
-        #new_sample = np.rint(new_sample).astype('int16')
-        new_sample = torch.from_numpy(new_sample).type(torch.FloatTensor)
+        if self.zero_silence < 185: 
+            new_sample = np.zeros(seq_length)
+            new_sample = torch.from_numpy(new_sample).type(torch.FloatTensor)
+            self.zero_silence += 1 
+        else:
+            selected = self.silence[randint(0, len(self.silence)-1)]
+            _, sample = read(self.root_dir+'/_background_noise_/'+selected)
+            start_index = randint(0, len(sample)-16000)
+            new_sample = sample[start_index:start_index+16000] * np.random.uniform(0, 1) #
+            new_sample = torch.from_numpy(new_sample).type(torch.FloatTensor)
+
         return new_sample
+    
+    def add_noise_kaggle(self, sample):
+        #randomly draw noise sample
+        _, noise =  read(self.root_dir+'/_background_noise_/'+ self.silence[randint(0, len(self.silence)-1)])
+        start_index = randint(0, len(noise)-16000)
+        noise = noise[start_index:start_index+16000]
+        #randomly select noise level
+        levels = [-5, 0, 5, 10, None]
+        snr_target = levels[randint(0, len(levels)-1)]
+
+        if snr_target is None:
+            return sample
+        else:
+            sample_power = np.sum((sample / 2**15)**2) / len(sample)
+            noise_power = np.sum((noise / 2**15)**2) / len(noise)
+            factor = np.sqrt((sample_power / noise_power) / (10**(snr_target / 10.0)))
+            return np.int16(sample + factor * noise)
+    
+    def add_noise_uniform(self, sample, factor_max):
+        #randomly draw noise sample
+        _, noise =  read(self.root_dir+'/_background_noise_/'+ self.silence[randint(0, len(self.silence)-1)])
+        start_index = randint(0, len(noise)-16000)
+        noise = noise[start_index:start_index+16000]
+        return np.int16(sample + np.random.uniform(0, factor_max) * noise)

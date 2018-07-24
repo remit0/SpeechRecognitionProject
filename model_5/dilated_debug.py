@@ -16,8 +16,8 @@ torch.set_default_tensor_type('torch.FloatTensor')
 
 # Hyperparams
 NUM_EPOCHS = 1
-BATCH_SIZE = 2
-LEARNING_RATE = 0.003
+BATCH_SIZE = 1
+LEARNING_RATE = 0.0003
 NUM_FEATURES = 256
 NUM_LAYERS = 1
 MODE = 4
@@ -27,8 +27,8 @@ LAMBDA = 0.87
 # Model & Dataset
 dataset = SRCdataset(data_path + '/training_list.txt', data_path + '/audio')
 valset = SRCdataset(data_path + '/validation_list.txt', data_path + '/audio')
-dataset.reduceDataset(4)
-valset.reduceDataset(4)
+dataset.reduceDataset(5)
+valset.reduceDataset(1)
 dataset.display()
 
 if MODE == 1:

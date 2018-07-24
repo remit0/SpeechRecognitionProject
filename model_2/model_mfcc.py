@@ -45,7 +45,7 @@ def class_accuracy(model, device, dataset, filename, batchsize=2):
         for i_batch, batch in enumerate(dataloader):
             outputs = model(batch['mfccs'].to(device))
             _, predicted = torch.max(outputs.data, 1)
-            c = (predicted == batch['label']).squeeze()
+            c = (predicted == batch['label'].to(device)).squeeze()
 
             for i in range(batchsize):
                 label = batch['label'][i]
