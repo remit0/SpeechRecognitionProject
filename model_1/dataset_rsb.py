@@ -6,6 +6,8 @@ from scipy.io.wavfile import read, write
 from math import floor
 from os import listdir
 from os.path import isfile, join
+import cv2
+
 # pylint: disable=E1101, W0612
 # 1853
 labels = ['yes','no','up','down','left','right','on','off','stop','go','unknown','silence']
@@ -119,6 +121,9 @@ class SRCdataset(Dataset):
                     new_sample = np.concatenate((new_sample, np.zeros(padding, dtype=int)))
                 if self.train:
                     new_sample = self.add_noise_kaggle(new_sample)
+                    if np.random.uniform(0, 1) < 0.5:
+                        new_sample = self.time_shifting(new_sample, 4800)
+
                 new_sample = torch.from_numpy(new_sample)
                 new_sample = new_sample.type(torch.FloatTensor)
                 if self.mode != "submission":
@@ -144,7 +149,7 @@ class SRCdataset(Dataset):
             selected = self.silence[randint(0, len(self.silence)-1)]
             _, sample = read(self.root_dir+'/_background_noise_/'+selected)
             start_index = randint(0, len(sample)-16000)
-            new_sample = sample[start_index:start_index+16000] * np.random.uniform(0, 1) #
+            new_sample = sample[start_index:start_index+16000] * np.random.uniform(0, 1)
             new_sample = torch.from_numpy(new_sample).type(torch.FloatTensor)
 
         return new_sample
@@ -172,3 +177,35 @@ class SRCdataset(Dataset):
         start_index = randint(0, len(noise)-16000)
         noise = noise[start_index:start_index+16000]
         return np.int16(sample + np.random.uniform(0, factor_max) * noise)
+    
+    def time_shifting(self, sample, range):
+        shift = randint(-range, range)
+        if shift >= 0:
+            return np.int16(np.concatenate((sample[shift:], np.random.randint(-32, 32, shift))))
+        else:
+            return np.int16(np.concatenate((np.random.randint(-32, 32, -shift), sample[:shift])))
+    
+    def speed_tuning(self, sample):
+        speed_rate = np.random.uniform(0.7,1.3)
+        sample = sample.astype(float)
+        f_sample = cv2.resize(sample, (1, int(len(sample) * speed_rate))).squeeze()
+        if len(f_sample) < 16000:
+            pad_len = 16000 - len(f_sample)
+            f_sample = np.r_[np.random.randint(-32, 32, int(pad_len/2)),
+                                f_sample,
+                                np.random.randint(-32, 32,int(np.ceil(pad_len/2)))]
+            return np.int16(f_sample)
+        else:
+            cut_len = len(f_sample) - 16000
+            f_sample = f_sample[int(cut_len/2):int(cut_len/2)+16000]
+            return np.int16(f_sample)
+
+
+"""
+data_path = '../Data/train'
+dataset = SRCdataset(data_path + '/training_list.txt', data_path + '/audio')
+x = dataset[75]['audio'].numpy()
+print(np.mean(x))
+x = dataset.speed_tuning(x)
+print(np.mean(x))
+"""

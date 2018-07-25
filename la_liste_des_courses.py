@@ -1,10 +1,12 @@
+# why not use resnet after extracting features ?
+# data augmentation methods article
 """
 TO WORK ON :
--- stretching shifting (in addition)
 """
 """
 RUNNING :
--- adding noise during training + scale down uniformly 0.1 + scale down uniformly 1
+stretching shifting (in addition) + submit
+adding noise during training + scale down uniformly 0.1 + scale down uniformly 1 + submit
 """
 """
 COMPLETED :
