@@ -8,6 +8,7 @@ from os import listdir
 from os.path import isfile, join
 from librosa.feature import mfcc
 import cv2
+from librosa.effects import pitch_shift
 # pylint: disable=E1101, W0612
 
 labels = ['yes','no','up','down','left','right','on','off','stop','go','unknown','silence']
@@ -211,3 +212,12 @@ class SRCdataset(Dataset):
             cut_len = len(f_sample) - 16000
             f_sample = f_sample[int(cut_len/2):int(cut_len/2)+16000]
             return np.int16(f_sample)
+
+
+    def pitch_shifting(self, sample):
+        levels = [-2, -1, 1, 2, None]
+        pitch_target = levels[randint(0, len(levels)-1)]
+        if pitch_target is None:
+            return sample
+        else:
+            return np.int16(pitch_shift(sample.astype(float), 16000, n_steps = pitch_target))

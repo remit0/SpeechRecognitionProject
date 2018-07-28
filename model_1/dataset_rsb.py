@@ -7,6 +7,7 @@ from math import floor
 from os import listdir
 from os.path import isfile, join
 import cv2
+from librosa.effects import pitch_shift
 
 # pylint: disable=E1101, W0612
 # 1853
@@ -110,27 +111,29 @@ class SRCdataset(Dataset):
             label_idx = labels.index(label)
         else:
             label_idx = 10
-        try:
-            if label_idx == 11 and self.train:
-                sample = {'audio': self.draw_silence_sample(), 'label': 11}
-            else:
-                item_path = self.root_dir + '/' + item_name
-                _, new_sample = read(item_path)
-                if len(new_sample) != seq_length:
-                    padding = seq_length - len(new_sample)
-                    new_sample = np.concatenate((new_sample, np.zeros(padding, dtype=int)))
-                if self.train:
-                    new_sample = self.add_noise_kaggle(new_sample)
-                    if np.random.uniform(0, 1) < 0.5:
-                        new_sample = self.time_shifting(new_sample, 4800)
+        #try:
+        if label_idx == 11 and self.train:
+            sample = {'audio': self.draw_silence_sample(), 'label': 11}
+        else:
+            item_path = self.root_dir + '/' + item_name
+            _, new_sample = read(item_path)
+            if len(new_sample) != seq_length:
+                padding = seq_length - len(new_sample)
+                new_sample = np.concatenate((new_sample, np.zeros(padding, dtype=int)))
+            if self.train:
+                new_sample = self.add_noise_kaggle(new_sample)
+                #new_sample = self.pitch_shifting(new_sample)
+                #if np.random.uniform(0, 1) < 0.5:
+                    #new_sample = self.time_shifting(new_sample, 4800)
 
-                new_sample = torch.from_numpy(new_sample)
-                new_sample = new_sample.type(torch.FloatTensor)
-                if self.mode != "submission":
-                    sample = {'audio': new_sample, 'label': label_idx}
-                else:
-                    sample = {'audio': new_sample, 'label': item_name}
-            return sample
+            new_sample = torch.from_numpy(new_sample)
+            new_sample = new_sample.type(torch.FloatTensor)
+            if self.mode != "submission":
+                sample = {'audio': new_sample, 'label': label_idx}
+            else:
+                sample = {'audio': new_sample, 'label': item_name}
+        return sample
+        """
         except:
             print("bugged item:", item_name)
             print("label", label_idx, label)
@@ -138,6 +141,7 @@ class SRCdataset(Dataset):
             new_sample = torch.from_numpy(new_sample)
             new_sample = new_sample.type(torch.FloatTensor)
             return {'audio': new_sample, 'label': 11}
+        """
         
 
     def draw_silence_sample(self):
@@ -200,12 +204,18 @@ class SRCdataset(Dataset):
             f_sample = f_sample[int(cut_len/2):int(cut_len/2)+16000]
             return np.int16(f_sample)
 
+    def pitch_shifting(self, sample):
+        levels = [-2, -1, 1, 2, None]
+        pitch_target = levels[randint(0, len(levels)-1)]
+        if pitch_target is None:
+            return sample
+        else:
+            return np.int16(pitch_shift(sample.astype(float), 16000, n_steps = pitch_target))
+
 
 """
 data_path = '../Data/train'
 dataset = SRCdataset(data_path + '/training_list.txt', data_path + '/audio')
 x = dataset[75]['audio'].numpy()
-print(np.mean(x))
-x = dataset.speed_tuning(x)
-print(np.mean(x))
+x = dataset.pitch_shifting(x)
 """
