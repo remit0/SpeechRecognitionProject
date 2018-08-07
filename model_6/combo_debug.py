@@ -2,13 +2,12 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import ExponentialLR
-from dataset_rsb import SRCdataset
-from model_rsb import Network, accuracy, class_accuracy
+from dataset_combo import SRCdataset
+from model_combo import Network, accuracy, class_accuracy
 # pylint: disable=E1101, W0612
 
 data_path = '../Data/train'
 output_path = '../Data/results'
-MODEL = output_path + '/models/ResNet_debug.ckpt'
 
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -26,11 +25,12 @@ LAMBDA = 0.87
 
 # Model & Dataset
 dataset = SRCdataset(data_path + '/training_list.txt', data_path + '/audio')
-valset = SRCdataset(data_path + '/validation_list.txt', data_path + '/audio')
+#valset = SRCdataset(data_path + '/validation_list.txt', data_path + '/audio')
 dataset.reduceDataset(1)
-valset.reduceDataset(1)
+#valset.reduceDataset(1)
 dataset.display()
 
+"""
 if MODE == 1:
     model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS, mode=MODE).to(device)
 if MODE == 2:
@@ -50,9 +50,10 @@ if MODE == 3:
     for params in model.parameters():
         params.requires_grad = True
 if MODE == 4:
-    model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS).to(device)
-    for params in model.parameters():
-        params.requires_grad = True
+"""
+model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS).to(device)
+for params in model.parameters():
+    params.requires_grad = True
 
 # Loss and optimizer
 criterion = nn.CrossEntropyLoss()
@@ -60,7 +61,6 @@ optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters(
 scheduler = ExponentialLR(optimizer, LAMBDA)
 epoch, estop, maxval, maxind = 0, False, 0, 0
 num_batches = dataset.__len__() // BATCH_SIZE
-
 
 while epoch < NUM_EPOCHS and not estop:
     dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
@@ -70,8 +70,8 @@ while epoch < NUM_EPOCHS and not estop:
     for i_batch, batch in enumerate(dataloader):
         # Forward
         optimizer.zero_grad()
-        print(batch['audio'].unsqueeze(1).size())
-        outputs = model(batch['audio'].unsqueeze(1).to(device))
+        #outputs = model(batch['audio'].unsqueeze(1).to(device))
+        outputs = model(batch['audio'])
         loss = criterion(outputs, batch['label'].to(device))
 
         # Backward and optimize
@@ -87,9 +87,10 @@ while epoch < NUM_EPOCHS and not estop:
         #    myfile.write(str(loss.item())+'\n')
 
     # Save model, accuracy at each epoch
-    newval = accuracy(model, device, valset, output_path + '/test_'+KEY+'.txt', 4)
+    #newval = accuracy(model, device, valset, output_path + '/test_'+KEY+'.txt', 4)
     
     # Early stopping
+    """
     if newval > maxval:
         maxval = newval
         maxind = epoch
@@ -102,8 +103,7 @@ while epoch < NUM_EPOCHS and not estop:
     
     if epoch > maxind + 4:
         estop = True
-
+    """
     epoch += 1
     dataset.shuffleUnknown()
 
-class_accuracy(model, device, valset, output_path + '/class_'+KEY+'.txt', batchsize=4)

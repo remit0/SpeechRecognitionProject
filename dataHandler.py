@@ -93,8 +93,8 @@ def make_testing_list(input_path, output_path):
     with open(output_path + '/submission_list.txt', 'w') as submission_file:
         for x in all_test_files:
             submission_file.write(x +'\n')
-    
-make_testing_list('../Data/test/audio/', '../Data')
+
+#make_testing_list('/home/remito/Desktop/Data/test/audio', '../Data')
 
 
 

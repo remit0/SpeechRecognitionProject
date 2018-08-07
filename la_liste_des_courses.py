@@ -1,19 +1,21 @@
 """
 TO WORK ON :
-combine mfcc / resnet / spectrogram (with noise)| try different combinations | submit results
-combine same model with noise or not
-combine resnet features and mfcc (concatenate along time) before feeding bgru and train  
-check kaggle top 3 forum (1)
+check kaggle top 3 forum
 """
 """
 RUNNING :
-pitch shifting -> launch experiments
-SNR 2.5 5 7.5 10
-Uniform noise 0.2 0.3
-stretching / shifting (in addition) + submit
+light weight CNN and BGRU
 """
 """
 COMPLETED :
+combine resnet features and mfcc (concatenate along time) before feeding bgru and train
+_tried to match kernel size / stride / padding of both resnet and mfccs, what about number of features ? it is not obliged to move kernel size ?
+combine mfcc / resnet / spectrogram (with noise)| try different combinations | submit results | average and max testing
+combine same model with noise or not
+pitch shifting
+SNR 2.5 5 7.5 10
+Uniform noise 0.2 0.3
+stretching / shifting (in addition) + submit
 curve justying choices of stride, kernel, sizes
 --
 adding noise during training + scale down uniformly 0.1 / scale down uniformly 1 + submit
