@@ -25,32 +25,9 @@ LAMBDA = 0.87
 
 # Model & Dataset
 dataset = SRCdataset(data_path + '/training_list.txt', data_path + '/audio')
-#valset = SRCdataset(data_path + '/validation_list.txt', data_path + '/audio')
 dataset.reduceDataset(1)
-#valset.reduceDataset(1)
 dataset.display()
 
-"""
-if MODE == 1:
-    model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS, mode=MODE).to(device)
-if MODE == 2:
-    model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS).to(device)
-    model.load_state_dict(torch.load(MODEL))
-    for name, param in model.named_parameters():
-        if 'gru' in name:
-            param.requires_grad = True
-        if 'resnet' in name:
-            param.requires_grad = False
-    for name, param in model.named_parameters():
-        if param.requires_grad:
-            print(name)
-if MODE == 3:
-    model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS).to(device)
-    model.load_state_dict(torch.load(MODEL))
-    for params in model.parameters():
-        params.requires_grad = True
-if MODE == 4:
-"""
 model = Network(num_features=NUM_FEATURES, num_layers=NUM_LAYERS).to(device)
 for params in model.parameters():
     params.requires_grad = True
@@ -75,35 +52,33 @@ while epoch < NUM_EPOCHS and not estop:
         loss = criterion(outputs, batch['label'].to(device))
 
         # Backward and optimize
+        i = 0
+        for name, param in model.named_parameters():
+            if 'resnet' in name and 'backend' not in name:
+                if i == 0:
+                    print(name)
+                    old = list(param)[0].clone()
+                    print(name)
+                    i += 1
+
         loss.backward()
         optimizer.step()
+
+        i = 0
+        for name, param in model.named_parameters():
+            if 'resnet' in name and 'backend' not in name:
+                if i == 0:
+                    print(name)
+                    new = list(param)[0].clone()
+                    print(name)
+                    i += 1
+        
+        print(torch.equal(new.data, old.data))
         
         # Display
         print ('Epoch [{}/{}], Step[{}/{}], Loss: {:.9f}'
             .format(epoch+1, NUM_EPOCHS, i_batch+1, num_batches, loss.item()))
         
-        # Save loss
-        #with open(output_path +'/loss_'+KEY+'.txt', 'a') as myfile:
-        #    myfile.write(str(loss.item())+'\n')
-
-    # Save model, accuracy at each epoch
-    #newval = accuracy(model, device, valset, output_path + '/test_'+KEY+'.txt', 4)
-    
-    # Early stopping
-    """
-    if newval > maxval:
-        maxval = newval
-        maxind = epoch
-        if MODE == 1:
-            torch.save(model.state_dict(), output_path + '/models/ResNet_'+KEY+'.ckpt')
-        if MODE == 2:
-            torch.save(model.state_dict(), output_path +'/models/BGRU_'+KEY+'.ckpt')
-        if MODE == 3:
-            torch.save(model.state_dict(), output_path +'/models/final_'+KEY+'.ckpt')
-    
-    if epoch > maxind + 4:
-        estop = True
-    """
     epoch += 1
     dataset.shuffleUnknown()
 
