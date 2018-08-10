@@ -106,7 +106,6 @@ class ResNet(nn.Module):
         x = x.contiguous()
         bs = x.size(0)
         sl = x.size(1)
-        print(x.size())
         x = self.fc1(x)
 
         if self.mode == 1:
