@@ -120,9 +120,6 @@ class SRCdataset(Dataset):
             if len(new_sample) != seq_length:
                 padding = seq_length - len(new_sample)
                 new_sample = np.concatenate((new_sample, np.zeros(padding, dtype=int)))
-            new_sample = new_sample.astype(np.float)
-            self.standardize_audio(new_sample, 20)
-            new_sample = new_sample.astype(np.int16)
             if self.train:
                 prob = np.random.uniform(0, 1)
                 if prob < 0.2:
@@ -133,7 +130,7 @@ class SRCdataset(Dataset):
                     new_sample = self.time_shifting(new_sample, 4800)
                 if prob > 0.6 and prob < 0.8:
                     new_sample = self.add_noise_uniform(new_sample, 0.1)
-                
+            
             new_sample = self.filter_banks(new_sample)
             new_sample = torch.from_numpy(new_sample)
             new_sample = new_sample.type(torch.FloatTensor)
@@ -243,11 +240,14 @@ class SRCdataset(Dataset):
         mag_frames = np.absolute(np.fft.rfft(frames, NFFT))  # Magnitude of the FFT
         pow_frames = ((1.0 / NFFT) * ((mag_frames) ** 2))  # Power Spectrum
 
+        print(pow_frames.shape)
+
         nfilt = 120
         low_freq_mel = 0
         high_freq_mel = (2595 * np.log10(1 + (sample_rate / 2) / 700))  # Convert Hz to Mel
         mel_points = np.linspace(low_freq_mel, high_freq_mel, nfilt + 2)  # Equally spaced in Mel scale
         hz_points = (700 * (10**(mel_points / 2595) - 1))  # Convert Mel to Hz
+        
         alpha = np.random.uniform(0.9, 1.1)
         hz_points = np.array([hz_points[i] * alpha if hz_points[i] < (4800 * min(alpha, 1) / alpha) else 8000 - ((8000-4800*min(alpha, 1))/(8000-4800*(min(alpha,1)/alpha)))*(8000-hz_points[i]) for i in range(len(hz_points))])
         
@@ -265,7 +265,7 @@ class SRCdataset(Dataset):
         filter_banks = np.dot(pow_frames, fbank.T)
         filter_banks = np.where(filter_banks == 0, np.finfo(float).eps, filter_banks)  # Numerical Stability
         filter_banks = 20 * np.log10(filter_banks)  # dB
-
+        print(filter_banks.shape)
         return filter_banks # time x features
 
     def standardize_audio(self, sample, n_chunks):
@@ -283,9 +283,8 @@ class SRCdataset(Dataset):
                 sample[i*chunk_size: (i+1)*chunk_size] = audio
     
         
-"""
+
 data_path = '../Data/train'
 dataset = SRCdataset(data_path + '/training_list.txt', data_path + '/audio')
 x = dataset[75]['audio'].numpy()
-dataset.standardize_audio(x, 50)
-"""
+#dataset.filter_banks(x)

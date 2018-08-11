@@ -1,11 +1,11 @@
 """
 TO WORK ON :
+use fully connected to combine models
 combine different models:
 - 3 models + cnn kaggle
 - add CNNBGRU
 - try some more look for different kernels
 - try different models with different data augmentation
-check kaggle top 3 forum
 """
 """
 RUNNING :
