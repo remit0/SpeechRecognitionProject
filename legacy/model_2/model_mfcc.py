@@ -4,6 +4,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 # pylint: disable=E1101, W0612
 
+
 class Network(nn.Module):
 
     def __init__(self, num_features = 69, num_layers = 2):

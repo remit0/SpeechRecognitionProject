@@ -1,5 +1,6 @@
 """
 TO WORK ON :
+SETUP convolutions for spec_cnn and resnet_dconv
 use fully connected to combine models
 combine different models:
 - 3 models + cnn kaggle
