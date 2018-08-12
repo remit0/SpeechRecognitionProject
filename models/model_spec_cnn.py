@@ -12,7 +12,7 @@ torch.set_default_tensor_type('torch.FloatTensor')
 def compute_spec(sample):
     audio = sample.numpy()
     _, _, spectrogram = signal.spectrogram(audio, fs=16000, nperseg = 640, noverlap = 320, detrend = False)
-    spectrogram = np.log(spectrogram.astype(np.float32) + 1e-10)
+    spectrogram = np.log(spectrogram.astype(np.float32) + 1e-10).T
     spectrogram = torch.from_numpy(spectrogram)
     spectrogram = spectrogram.type(torch.FloatTensor)
     return spectrogram
@@ -22,44 +22,38 @@ class Network(nn.Module):
     def __init__(self):
         super(Network, self).__init__()
         self.bn1 = nn.BatchNorm2d(1)
-        self.conv1 = nn.Conv2d(1, 8, (5, 2), bias = False)
-        self.conv2 = nn.Conv2d(8, 8, (5, 2), bias = False)
-        self.maxpool1 = nn.MaxPool2d(2)
-        self.dropout1 = nn.Dropout2d(p=0.2)
-        self.conv3 = nn.Conv2d(8, 16, (7, 3), bias=False)
-        self.conv4 = nn.Conv2d(16, 16, (7, 3), bias=False)
-        self.maxpool2 = nn.MaxPool2d(2)
-        self.dropout2 = nn.Dropout2d(p=0.2)
-        self.fc1 = nn.Linear(10368, 128)
-        self.bn2 = nn.BatchNorm1d(128)
-        self.fc2 = nn.Linear(128, 128)
-        self.bn3 = nn.BatchNorm1d(128)
-        self.fc3 = nn.Linear(128, 12)
+        self.conv1 = nn.Conv2d(1, 64, (3, 7), padding = (1, 3))
+        self.maxpool1 = nn.MaxPool2d((1, 5))
+        self.conv2 = nn.Conv2d(64, 128, (1, 7), padding = (0, 3))
+        self.maxpool2 = nn.MaxPool2d((1, 5))
+        self.conv3 = nn.Conv2d(128, 256, (1, 12))
+        self.conv4 = nn.Conv2d(256, 512, (5, 1), padding=(2, 0))
+        self.maxpool3 = nn.MaxPool1d(49)
+        self.dropout = nn.Dropout(0.5)
+        self.fc1 = nn.Linear(512, 256)
+        self.fc2 = nn.Linear(256, 12)
 
     def forward(self, inp):
-        # batch_size x 1 x 321 x 49(time)
+        # batch_size x 1 x 49(time) x 321(frequency)
         with torch.no_grad():
-            x = torch.ones(inp.size(0), 321, 49)
+            x = torch.ones(inp.size(0), 49, 321)
             for i in range(inp.size(0)):
                 x[i, :, :] = compute_spec(inp[i])
         
         x = x.unsqueeze(1).to(DEVICE)
-        x = self.bn1(x)
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
+        x = self.conv1(x)
         x = self.maxpool1(x)
-        x = self.dropout1(x)
-        x = F.relu(self.conv3(x))
-        x = F.relu(self.conv4(x))
+        x = self.conv2(x)
         x = self.maxpool2(x)
-        x = self.dropout2(x)
-        
-        x = x.view(x.size(0), -1)
-        x = F.relu(self.fc1(x))
-        x = self.bn2(x)
-        x = F.relu(self.fc2(x))
-        x = self.bn3(x)
-        x = self.fc3(x)
+        x = self.conv3(x)
+        x = self.conv4(x)
+        x = x.squeeze(3)
+        x = self.maxpool3(x)
+        x = x.squeeze(2)
+        x = self.dropout(x)
+        x = self.fc1(x)
+        x = self.fc2(x)
+
         return x
 
 def accuracy(model, dataset, filename, batchsize=2):

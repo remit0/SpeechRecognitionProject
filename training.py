@@ -42,8 +42,8 @@ from dataset import Dataset
 #from model_mfrn_bgru import Network, accuracy
 #from model_cnn_bgru import Network, accuracy
 #from model_fbanks_cnn import Network, accuracy
-#from model_resnet_dconv import Network, accuracy
-from model_spec_cnn import Network, accuracy
+from model_resnet_dconv import Network, accuracy
+#from model_spec_cnn import Network, accuracy
 
 # Configuration
 start = time.time()
@@ -52,17 +52,19 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
 
 # Hyperparams
-NUM_EPOCHS = 50
-BATCH_SIZE = 20
+NUM_EPOCHS = 1
+BATCH_SIZE = 2
 LAMBDA = 0.87
-LEARNING_RATE = 0.0003
+LEARNING_RATE = 0.0001
 if args.learning_rate is not None:
     LEARNING_RATE = args.learning_rate
 
 # Model & Dataset
 data = Dataset(data_path + '/training_list.txt', data_path + '/audio')
 valset = Dataset(data_path + '/validation_list.txt', data_path + '/audio')
-testset = Dataset(data_path + '/testing_list.txt', data_path + '/audio')
+#testset = Dataset(data_path + '/testing_list.txt', data_path + '/audio')
+data.reduce_dataset(2)
+valset.reduce_dataset(2)
 model = Network().to(device)
 for params in model.parameters():
     params.requires_grad = True
@@ -83,7 +85,7 @@ while epoch < NUM_EPOCHS and not estop: #early stopping
         optimizer.zero_grad()
         outputs = model(batch['audio'])
         loss = criterion(outputs, batch['label'].to(device))
-        print('bite')
+        
         # Backward and optimize
         loss.backward()
         optimizer.step()
@@ -94,10 +96,11 @@ while epoch < NUM_EPOCHS and not estop: #early stopping
 
     # Save model, accuracy at each epoch
     newval = accuracy(model, valset, output_path + '/val_'+KEY+'.txt', 4) #accuracy on validation set for early-stopping
-    accuracy(model, dataset, output_path + '/train_'+KEY+'.txt', 4) #accuracy on training set to monitor overfitting
-    accuracy(model, testset, output_path + '/test_'+KEY+'.txt', 4) #accuracy on testing set
+    accuracy(model, data, output_path + '/train_'+KEY+'.txt', 4) #accuracy on training set to monitor overfitting
+    #accuracy(model, testset, output_path + '/test_'+KEY+'.txt', 4) #accuracy on testing set
 
     # Early stopping
+    """
     if newval > maxval:
         maxval = newval
         maxind = epoch
@@ -105,6 +108,7 @@ while epoch < NUM_EPOCHS and not estop: #early stopping
 
     if epoch > maxind + 4:
         estop = True
+    """
     epoch += 1
     data.resample_unknown_class()
 

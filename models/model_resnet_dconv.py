@@ -44,8 +44,8 @@ class ResNet(nn.Module):
         self.layer1 = self._make_layer(block, 64, 2)
         self.layer2 = self._make_layer(block, 128, 2, stride=2)
         self.layer3 = self._make_layer(block, 256, 2, stride=2)
-        self.layer4 = self._make_layer(block, 512, 2, stride=2)
-        self.fc1 = nn.Linear(512, 512)
+        self.layer4 = self._make_layer(block, 256, 2, stride=2)
+        self.fc1 = nn.Linear(256, 256)
 
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
@@ -88,27 +88,29 @@ class ResNet(nn.Module):
         x = x.view(bs*sl, -1)
         x = self.fc1(x)
 
-        x = x.view(bs, 512, sl)
+        x = x.view(bs, -1, sl)
         return x
 
 class Dilation(nn.Module):
 
     def __init__(self):
         super(Dilation, self).__init__()
-        self.conv1 = nn.Conv1d(512, 512, 4, dilation=1)
-        self.conv2 = nn.Conv1d(512, 512, 4, dilation=2)
-        self.conv3 = nn.Conv1d(512, 512, 4, dilation=4)
-        self.conv4 = nn.Conv1d(512, 512, 4, dilation=8)
-        #batch_size x 512 x 455 (seqlen)
-        self.fc2 = nn.Linear(240640, 12)
+        self.conv1 = nn.Conv1d(256, 384, kernel_size=5, padding=2, dilation=1)
+        self.conv2 = nn.Conv1d(384, 512, kernel_size=5, padding=8, dilation=4)
+        self.conv3 = nn.Conv1d(512, 640, kernel_size=5, padding=32, dilation=16)
+        self.maxpool = nn.MaxPool1d(10)
+        self.conv4 = nn.Conv1d(640, 640, kernel_size = 50)
+        self.fc1 = nn.Linear(640, 640)
+        self.fc2 = nn.Linear(640, 12)
 
-    def forward(self, x): 
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
-        x = F.relu(self.conv4(x))
-        print(x.size())
-        x = x.view(x.size(0), -1)
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = self.maxpool(x)
+        x = self.conv4(x)
+        x = x.squeeze(2)
+        x = self.fc1(x)
         x = self.fc2(x)
         return x
 

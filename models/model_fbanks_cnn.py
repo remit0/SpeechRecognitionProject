@@ -76,7 +76,7 @@ class Network(nn.Module):
         self.conv3 = nn.Conv2d(128, 256, (1, 10))
         self.conv4 = nn.Conv2d(256, 512, (7, 1), padding=(3, 0))
         self.maxpool3 = nn.MaxPool1d(98)
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout()
         self.fc1 = nn.Linear(512, 256)
         self.fc2 = nn.Linear(256, 12)
         
