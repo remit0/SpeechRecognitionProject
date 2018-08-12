@@ -12,7 +12,7 @@ from librosa.effects import pitch_shift #audio processing
 LABELS = ['yes','no','up','down','left','right','on','off','stop','go','unknown','silence'] #10 commands + silence and unknown words
 SEQ_LENGTH = 16000 #sampling rate of audio files is 16kHz, all audio files should be 1s long
 
-class dataset(Dataset):
+class Dataset(Dataset):
     """
     Inherits torch.utils.data.Dataset
     This class aims to make our dataset accessible conveniently so that accessing the k-th item of the dataset
@@ -268,9 +268,10 @@ class dataset(Dataset):
         print('class distribution :  ', [(LABELS[i], class_distribution[i]) for i in range(12)])
 
 """
-DEBUGGING PURPOSES
+#DEBUGGING PURPOSES
 data_path = '/home/r2d9/Desktop/Data/train'
-dataset = dataset(data_path + '/training_list.txt', data_path + '/audio')
-print(dataset[0]['audio'])
+dataset = dataset(data_path + '/training_list.txt', data_path + '/audio', "submission")
+print(dataset[0]['label'])
 """
+
 

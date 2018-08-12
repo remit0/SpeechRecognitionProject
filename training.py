@@ -18,7 +18,7 @@ model_path = output_path + '/models/resnet_bgru_1.ckpt' #path to find pre-traine
 """
 
 # HOME SETUP
-source = '/home/r2d9/Desktop/SpeechRecognitionProject/refactored'  #path to code location
+source = '/home/r2d9/Desktop/SpeechRecognitionProject'  #path to code location
 data_path = '/home/r2d9/Desktop/Data/train' #path to the parent directory of 'audio'
 output_path = '/home/r2d9/Desktop' #path to output the results
 model_path = output_path + '/models/model_1.ckpt' #path to find pre-trained model
@@ -35,7 +35,7 @@ KEY = '' #provided for convenience, easy way to differenciate experiments
 if args.filekey is not None:
     KEY = args.filekey
 
-from dataset import dataset
+from dataset import Dataset
 #from model_resnet_bgru import Network, accuracy
 #from model_mfcc_bgru import Network, accuracy
 #from model_spec_bgru import Network, accuracy
@@ -60,9 +60,9 @@ if args.learning_rate is not None:
     LEARNING_RATE = args.learning_rate
 
 # Model & Dataset
-data = dataset(data_path + '/training_list.txt', data_path + '/audio')
-valset = dataset(data_path + '/validation_list.txt', data_path + '/audio')
-testset = dataset(data_path + '/testing_list.txt', data_path + '/audio')
+data = Dataset(data_path + '/training_list.txt', data_path + '/audio')
+valset = Dataset(data_path + '/validation_list.txt', data_path + '/audio')
+testset = Dataset(data_path + '/testing_list.txt', data_path + '/audio')
 model = Network().to(device)
 for params in model.parameters():
     params.requires_grad = True

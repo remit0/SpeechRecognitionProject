@@ -30,7 +30,7 @@ class Network(nn.Module):
             inx = torch.ones(x.size(0), 39, 51)
             for i in range(x.size(0)):
                 inx[i, :, :] = compute_mfcc(x[i])
-        inx.to(DEVICE)
+        inx = inx.to(DEVICE)
         inx = torch.transpose(inx,1,2)
         inx, _ = self.gru(inx)
         inx = self.fc(inx[:, -1, :])
