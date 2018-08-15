@@ -74,9 +74,9 @@ criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE)
 scheduler = ExponentialLR(optimizer, LAMBDA)    #learning rate decay, halved every 5 epochs
 epoch, estop, maxval, maxind = 0, False, 0, 0
+dataloader = DataLoader(data, batch_size=BATCH_SIZE, shuffle=True, drop_last=False)
 
 while epoch < NUM_EPOCHS and not estop: #early stopping
-    dataloader = DataLoader(data, batch_size=BATCH_SIZE, shuffle=True, drop_last=False)
     if epoch > 4:   #fixed learning rate for first 5 epochs
         scheduler.step()
     

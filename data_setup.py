@@ -104,7 +104,23 @@ def make_testing_list(input_path, output_path):
 
 #make_testing_list('/home/r2d9/Desktop/Data/test/audio', '/home/r2d9/Desktop/Data')
 
+def make_training_list_complete(filepath):
+    """
+    full training samples
+    """
+    onlyfiles = listdir(filepath+'/audio')
+    onlyfiles.remove('_background_noise_')
 
+    allfiles = []
+    for directory in onlyfiles:
+        allfiles += [directory+'/'+f for f in listdir(filepath+'/audio/'+directory) 
+        if isfile(join(filepath+'/audio/'+directory, f))]
+
+    train_file = open(filepath+'/complete_list.txt', 'w')
+    for filename in allfiles:
+        train_file.write(filename+'\n')
+
+make_training_list_complete('/home/r2d9/Desktop/Data/train')
 
 
 

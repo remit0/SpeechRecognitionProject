@@ -1,18 +1,17 @@
 """
 TO WORK ON :
-SETUP convolutions for spec_cnn and resnet_dconv
-use fully connected to combine models
-combine different models:
-- 3 models + cnn kaggle
-- add CNNBGRU
-- try some more look for different kernels
-- try different models with different data augmentation
 """
 """
 RUNNING :
+combine different models:
+- use fully connected to combine models
+- try some more look for different kernels on resnet and combine
+- try different models with different data augmentation
 """
 """
-COMPLETED :
+COMPLETED:
+SETUP convolutions for spec_cnn and resnet_dconv
+--
 light weight CNN and BGRU
 combine resnet features and mfcc (concatenate along time) before feeding bgru and train
 _tried to match kernel size / stride / padding of both resnet and mfccs, what about number of features ? it is not obliged to move kernel size ?
